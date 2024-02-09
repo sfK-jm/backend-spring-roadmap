@@ -817,3 +817,138 @@ JSON 형식 파싱 추가<br>
 > - HTML form 데이터도 메시지 바디를 통해 전송되므로 inputStream을 통해 직접 읽을 수 있다. 하지만 편리한 파리미터 조회 기능( `request.getParameter(...)` )을 이미 제공하기 때문에 파라미터 조회 기능을 사용하면 된다.
 
 ### HttpServletResponse - 기본 사용법
+
+- 역할
+  - **HTTP 응답 메시지 생성**
+    - HTTP 응답코드 지정
+    - 헤더 생성
+    - 바디 생성
+  - **편의 기능 제공**
+    - Content-type, 쿠키, Redirect
+
+코드로 확인해보자
+
+- HTTP 응답 메시지 생성<br>(src > main > java > hello > servlet > basic > response 패키지를 생성하고, 내부에 ResponseHeaderServlet 클래스를 생성하고 실행해보자.)
+
+  ```java
+  package hello.servlet.basic.response;
+
+  @WebServlet(name = "responseHeaderServlet", urlPatterns = "/response-header")
+  public class ResponseHeaderServlet extends HttpServlet {
+
+      @Override
+      protected void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+
+          // [status-line]
+          response.setStatus(HttpServletResponse.SC_OK);
+
+          // [response-headers]
+          response.setHeader("Content-Type", "text/plain;charset=utf-8");
+          response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+          response.setHeader("Pragma", "no-cache");
+          response.setHeader("myHeader", "hello");
+
+          // [message body]
+          PrintWriter writer = response.getWriter();
+          writer.println("ok");
+      }
+  }
+  ```
+
+편의 기능을 확인해보자
+
+- ResponseHeaderServlet 클래스에 아래 코드를 추가해보자.
+
+  ```java
+  private void content(HttpServletResponse response) {
+        response.setContentType("text/plain");
+        response.setCharacterEncoding("utf-8");
+    }
+
+  private void cookie(HttpServletResponse response) {
+        Cookie cookie = new Cookie("myCookie", "good");
+        cookie.setMaxAge(600); // 600초
+        response.addCookie(cookie);
+    }
+
+  private void redirect(HttpServletResponse response) throws IOException {
+        response.sendRedirect("/basic/hello-form.html");
+    }
+  ```
+
+## HTTP 응답 데이터 - 단순 텍스트, HTML
+
+이전까지는 start-line, header등에서 알아보았다.<br>
+이번에는 HTTP 응답 데이터 부분에 집중해서 알아보자
+
+**HTTP응답 메시지는 주로 다음 내용을 담아서 전달한다**
+
+- 단순 텍스트 응답
+  - 앞에서 살펴보았다.(`writer.println("ok")`)
+- HTML응답
+- HTTP API - MessageBody JSON 응답
+
+### HttpServletResponse - HTML 응답
+
+- src > main > java > hello > servlet > basic > response 패키지 내부에 ResponseHtmlServlet 클래스를 생성하고 실행
+
+  ```java
+  package hello.servlet.basic.response;
+
+  @WebServlet(name = "responseHtmlServlet", urlPatterns = "/response-html")
+  public class ResponseHtmlServlet extends HttpServlet {
+
+      @Override
+      protected void service (HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+          response.setContentType("text/html");
+          response.setCharacterEncoding("utf-8");
+
+          PrintWriter writer = response.getWriter();
+          writer.println("<html>");
+          writer.println("<body>");
+          writer.println("  <div>안녕?</div>");
+          writer.println("</body>");
+          writer.println("</html>");
+      }
+
+  }
+  ```
+
+  > [!TIP] 참고
+  >
+  > - HTTP응답으로 HTML을 반환할 때는 content-type을 text/html로 지정해야 한다
+  > - 서블릿으로 HTML을 렌더링할때는 위와 같이 직접작성해야한다. (자바 코드로 작성하기 때문에 로직을 넣으면 동적으로 HTML 생성이 가능하다. (IF문도 넣을 수 있는 등)))
+
+## HTTP 응답 데이터 - API JSON
+
+이번에는 HTTP API를 만들때 주로 사용하는 응답 데이터를 JSON 형식으로 보내는 방법에 대해서 알아보자.
+
+- src > main > java > hello > servlet > basic > response 패키지 내부에 ResponseJsonServlet 클래스를 생성후 실행
+
+  ```java
+  package hello.servlet.basic.response;
+
+
+  @WebServlet(name = "responseJsonServlet", urlPatterns = "/response-json")
+  public class ResponseJsonServlet extends HttpServlet {
+
+      private ObjectMapper objectMapper = new ObjectMapper();
+
+      @Override
+      protected void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+          response.setContentType("application/json");
+          // application/json은 기본적으로 utf-8을 지원해서 아래코드는 의미x
+          // response.setCharacterEncoding("utf-8");
+
+          HelloData helloData = new HelloData();
+          helloData.setUsername("kim");
+          helloData.setAge(20);
+
+          String result = objectMapper.writeValueAsString(helloData);
+          response.getWriter().write(result);
+      }
+  }
+  ```
+
+  - HTTP응답으로 JSON을 반환할 때는 content-type을 `application/json`로 지정해야 한다.<br>
+    Jackson 라이브러리가 제공하는 `objectMapper.writeValueAsString()` 를 사용하면 객체를 JSON 문자로 변경할 수 있다.
