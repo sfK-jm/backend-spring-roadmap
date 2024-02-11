@@ -1677,3 +1677,116 @@ public class MvcMemberListServlet extends HttpServlet {
   - 서블릿과 비슷한 모양의 컨트롤러 인터페이스를 도입한다. 각 컨트롤러들은 이 인터페이스를 구현하면 된다. 프론트 컨트롤러는 이 인터페이스를 호출해서 구현과 관계없이 로직의 일관성을 가져갈 수 있다. (프론트 컨트롤러가 컨트롤러를 찾아서 호출할 때, 다형성을 사용해서 일관성있게 호출하기 위함.)
 
 이제 위 인터페이스를 구현한 컨트롤러를 만들어보자. 지금 단계에서는 기존 로직을 최대한 유지하는게 핵심이다.
+
+- `회원 등록 폼 컨트롤러`: src > main > java > hello > servlet > web > frontcontroller > v1 패키지 내부에 controller 패키지를 생성하고, controller 패키지 내부에 MemberFormControllerV1 클래스를 생성하자.
+
+  ```java
+  package hello.servlet.web.frontcontroller.v1.controller;
+
+  public class MemberFormControllerV1 implements ControllerV1 {
+      @Override
+      public void process(HttpServletRequest request,
+                          HttpServletResponse response) throws ServletException, IOException {
+          String viewPath = "/WEB-INF/views/new-form.jsp";
+          RequestDispatcher dispatcher = request.getRequestDispatcher(viewPath);
+          dispatcher.forward(request, response);
+      }
+  }
+  ```
+
+  - 내부 로직은 기존 서블릿 코드와 같다.
+
+- `회원 저장 컨트롤러`: src > main > java > hello > servlet > web > frontcontroller > v1 > controller 패키지 내부에 MemberSaveControllerV1 클래스를 생성하자.
+
+  ```java
+  package hello.servlet.web.frontcontroller.v1.controller;
+
+  public class MemberSaveControllerV1 implements ControllerV1 {
+
+      private MemberRepository memberRepository = MemberRepository.getInstance();
+
+      @Override
+      public void process(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+          String username = request.getParameter("username");
+          int age = Integer.parseInt(request.getParameter("age"));
+
+          Member member = new Member(username, age);
+          memberRepository.save(member);
+
+          // Model에 데이터를 보관한다
+          request.setAttribute("member", member);
+          String viewPath = "/WEB-INF/views/save-result.jsp";
+          RequestDispatcher dispatcher = request.getRequestDispatcher(viewPath);
+          dispatcher.forward(request, response);
+      }
+  }
+  ```
+
+  - 내부 로직은 기존 서블릿 코드와 같다.
+
+`회원 목록 컨트롤러`: src > main > java > hello > servlet > web > frontcontroller > v1 > controller 패키지 내부에 MemberListControllerV1 클래스를 생성하자.
+
+```java
+package hello.servlet.web.frontcontroller.v1.controller;
+
+public class MemberListControllerV1 implements ControllerV1 {
+
+    private MemberRepository memberRepository = MemberRepository.getInstance();
+
+    @Override
+    public void process(HttpServletRequest request,
+                        HttpServletResponse response) throws ServletException, IOException {
+
+        List<Member> members = memberRepository.findAll();
+
+        request.setAttribute("members", members);
+
+        String viewPath = "/WEB-INF/views/members.jsp";
+        RequestDispatcher dispatcher = request.getRequestDispatcher(viewPath);
+        dispatcher.forward(request, response);
+    }
+}
+
+```
+
+이제 프론트 컨트롤러를 만들어보자
+
+`프론트 컨트롤러`: src > main > java > hello > servlet > web > frontcontroller > v1 패키지 내부에 FrontControllerServletV1 클래스를 생성하자.
+
+```java
+package hello.servlet.web.frontcontroller.v1;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+
+@WebServlet(name = "frontControllerServletV1", urlPatterns = "/front-controller/v1/*")
+public class FrontControllerServletV1 extends HttpServlet {
+
+    private Map<String, ControllerV1> controllerV1Map = new HashMap<>();
+
+    public FrontControllerServletV1() {
+        controllerV1Map.put("/front-controller/v1/members/new-form", new MemberFormControllerV1());
+        controllerV1Map.put("/front-controller/v1/members/save", new MemberSaveControllerV1());
+        controllerV1Map.put("/front-controller/v1/members", new MemberListControllerV1());
+    }
+
+    @Override
+    protected void service(HttpServletRequest request,
+                          HttpServletResponse response) throws ServletException, IOException {
+
+        System.out.println("FrontControllerServletV1.service");
+
+        String requestURI = request.getRequestURI();
+
+        ControllerV1 controller = controllerV1Map.get(requestURI);
+
+        if (controller == null) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+
+        controller.process(request, response);
+    }
+}
+```
