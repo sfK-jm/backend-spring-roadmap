@@ -1790,3 +1790,181 @@ public class FrontControllerServletV1 extends HttpServlet {
     }
 }
 ```
+
+- 정상적으로 동작함을 확인할 수 있다. (기존 서블릿, JSP로 만든 MVC와 동일하게 실행되는 것을 확인할 수 있다.)
+
+### 프론트 컨트롤러 분석
+
+- urlPatterns
+  - `urlPatterns = "/front-controller/v1/\*"`
+  - `/front-controller/v1`를 포함한 하위 모든 요청은 이 서블릿에서 받아들인다
+  - 예) `/front-controller/v1`, `/front-controller/v1/a`, `/front-controller/v1/a/b`
+- controllerMap
+  - key: 매핑 URL
+  - value: 호출될 컨트롤러
+- service()
+  - 먼저 `requestURI`를 조회해서 실제 호출할 컨트롤러 `controllerMap`에서 찾는다. 만약 없다면 404(SC_NOT_FOUND) 상태 코드를 반환한다
+  - 컨트롤러를 찾고 `controller.process(request, response);`을 호출해서 해당 컨트롤러를 실행한다
+- JSP
+  - JSP는 이전 MVC에서 사용했던 것을 그래로 사용한다.
+
+### View분리 - v2
+
+모든 컨트롤러에서 뷰로 이동하는 부분에 중복이 있고, 깔끔하지 않다.
+
+v2 구조
+<img src="./images/v2구조.png">
+
+- 클라이언트가 HTTP요청을 한다
+- FrontController는 매핑 정보에는 요청 URL에 따른 컨트롤러를 조회하여 호출한다.
+- 과거에는 컨트롤러에서 JSP로 직접 forword 해줬지만, 이제 컨트롤러에서 FrontController에 MyView라는 객체를 만들어서 반환한다.
+- FrontController가 MyView의 render()를 호출하면, MyView가 JSP로 forward한다.
+
+설명으로 봐서는 뭔가 더 복잡해보인다. 직접 코드로 확인해보자.
+
+`MyView`: src > main > java > hello > servlet > web > frontcontroller 패키지 내부에 MyView 클래스를 생성하자.
+
+```java
+package hello.servlet.web.frontcontroller;
+
+public class MyView {
+
+    private String viewPath;
+
+    public MyView(String viewPath) {
+        this.viewPath = viewPath;
+    }
+
+    public void render(HttpServletRequest request,
+                       HttpServletResponse response) throws ServletException, IOException {
+        RequestDispatcher dispatcher = request.getRequestDispatcher(viewPath);
+        dispatcher.forward(request, response);
+    }
+}
+```
+
+이 코드만 봐서는 어떻게 활용하는지 아직 감이 안올 것이다. 다음 버전의 컨트롤러 인터페이스를 만들어보자. 컨트롤러가 뷰를 반환하는 특징이 있다.
+
+`ControllerV2`: src > main > java > hello > servlet > web > frontcontroller 내부에 v2 패키지를 생성하고, v2 패키지 내부에 ControllerV2 인터페이스를 생성
+
+```java
+package hello.servlet.web.frontcontroller.v2;
+
+public interface ControllerV2 {
+
+    MyView process(HttpServletRequest request,
+                   HttpServletResponse response) throws ServletException, IOException;
+}
+```
+
+`회원 등록 폼 컨트롤러`: src > main > java > hello > servlet > web > frontcontroller > v2 > controller 패키지를 생성하고, controller 패키지 내부에 MemberFormControllerV2 클래스를 생성하자.
+
+```java
+package hello.servlet.web.frontcontroller.v2.controller;
+
+public class MemberFormControllerV2 implements ControllerV2 {
+
+    @Override
+    public MyView process(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        return new MyView("/WEB-INF/views/new-form/jsp");
+    }
+}
+```
+
+`회원 저장 컨트롤러`: src > main > java > hello > servlet > web > frontcontroller > v2 > controller 패키지 내부에 MemberSaveControllerV2 클래스를 생성하자.
+
+```java
+package hello.servlet.web.frontcontroller.v2.controller;
+
+public class MemberSaveControllerV2 implements ControllerV2 {
+
+    private MemberRepository memberRepository = MemberRepository.getInstance();
+
+    @Override
+    public MyView process(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        String username = request.getParameter("username");
+        int age = Integer.parseInt(request.getParameter("age"));
+
+        Member member = new Member(username, age);
+        memberRepository.save(member);
+
+        request.setAttribute("member", member);
+
+        return new MyView("/WEB-INF/views/save-result.jsp");
+    }
+}
+```
+
+`회원 목록 컨트롤러`: src > main > java > hello > servlet > web > frontcontroller > v2 > controller 패키지 내부에 MemberListControllerV2 클래스를 생성하자.
+
+```java
+package hello.servlet.web.frontcontroller.v2.controller;
+
+public class MemberListControllerV2 implements ControllerV2 {
+
+    private MemberRepository memberRepository = MemberRepository.getInstance();
+
+    @Override
+    public MyView process(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        List<Member> members = memberRepository.findAll();
+
+        request.setAttribute("members", members);
+
+        return new MyView("/WEB-INF/views/members.jsp");
+    }
+}
+```
+
+`프론트 컨트롤러 V2`: src > main > java > hello > servlet > web > frontcontroller > v2 패키지 내부에 FrontControllerServletV2 클래스를 생성하자.
+
+```java
+package hello.servlet.web.frontcontroller.v2;
+
+@WebServlet(name = "frontControllerServletV2", urlPatterns = "/front-controller/v2/*")
+public class FrontControllerServletV2 extends HttpServlet {
+
+    private Map<String, ControllerV2> controllerMap = new HashMap<>(); // key: url
+
+    public FrontControllerServletV2() {
+        controllerMap.put("/front-controller/v2/members/new-form", new MemberFormControllerV2());
+        controllerMap.put("/front-controller/v2/members/save", new MemberSaveControllerV2());
+        controllerMap.put("/front-controller/v2/members", new MemberListControllerV2());
+    }
+
+    protected void service(HttpServletRequest request,
+                           HttpServletResponse response) throws ServletException, IOException {
+
+        System.out.println("FrontControllerServletV2.service");
+
+        String requestURI = request.getRequestURI();
+
+        ControllerV2 controller = controllerMap.get(requestURI);
+
+        if (controller == null) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+
+        MyView view = controller.process(request, response);
+        view.render(request, response);
+    }
+}
+```
+
+- ControllerV2의 반환 타입이 `MyView`이므로 프론트 컨트롤러는 컨트롤러의 호출 결과로 `MyView`를 반환받는다
+- 그리고 `view.render()`를 호출하면 `forward`로직을 수행해서 JSP가 실행된다.
+
+이렇게 실행하면 정상적으로 수행된 것을 볼 수 있다.
+
+#### MyView.render()
+
+> [!TIP] 참고
+>
+> ```java
+> public void render(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException{
+> RequestDispatcher dispatcher = request.getRequestDispatcher(viewPath);
+> dispatcher.forward(request, response);
+> }
+> ```
+>
+> - 프론트 컨트롤러의 도입으로 `MyView`객체의 `render()`를 호출하는 부분을 모두 일관되게 처리할 수 있다. 각각의 컨트롤러는. `MyView`객체를 생성만 해서 반환하면 된다.
