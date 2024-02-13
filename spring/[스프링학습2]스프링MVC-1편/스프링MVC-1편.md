@@ -451,6 +451,7 @@ HttpServletRequest - 개요
         - message body 데이터 직접 조회
   - HttpServletRequest 객체는 추가로 여러가지 부가기능도 함께 제공한다. - **임시 저장소 기능** - 해당 HTTP 요청이 시작부터 끝날 때 까지 유지되는 임시 저장소 - 저장: `request.setAttribute(name, value)` - 조회: `request.getAttribute(name)` - 세션 관리 기능 - `request.getSession(create: true)`
     > [!IMPORTANT]
+    >
     > HttpServletRequest, HttpServletResponse를 사용할 때 **가장 중요한 점은 이 객체들이 HTTP 요청 메시지, HTTP 응답 메시지를 편리하게 사용하도록 도와주는 객체**라는 점이다. 따라서 이 기능에 대해서 깊이있는 이해를 하려면 HTTP 스펙이 제공하는 요청, 응답메시지 자체를 이해햐야 한다.
 
 ### HttpServletRequest - 기본 사용법
@@ -2231,7 +2232,7 @@ public class FrontControllerServletV3 extends HttpServlet {
 - `createParamMap()`: HttpServletRequest에서 파라미터 정보를 꺼내서 Map으로 변환한다. 그리고 해당 Map(`paramMap`)을 컨트롤러에 전달하면서 호출한다.
 - (참고) 프론트 컨트롤러가 하는 일은 더 많아졌지만, 실제 구현한 컨트롤러는 더 편리해졌다.
 
-**뷰 리조버**
+**뷰 리졸버**
 
 - `MyView view = viewResolver(viewName)`
   - 컨트롤러가 반환한 논리 뷰 이름을 실제 물리. 뷰 경로로 변경한다. 그리고 실제 물리 경로가 있는 MyView객체를 반환한다.
