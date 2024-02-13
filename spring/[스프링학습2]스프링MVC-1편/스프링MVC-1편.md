@@ -405,15 +405,14 @@ ServletApplication에 `@ServletComponentScan` 에노테이션을 추가
 > [!TIP]
 > HTTP 요청 메시지 로그로 확인하기
 >
->  - application.properties파일에 다음과 같이 수정
+> - application.properties파일에 다음과 같이 수정
 >
->   ```txt
->   logging.level.org.apache.coyote.http11=debug
->   ```
+> ```txt
+> logging.level.org.apache.coyote.http11=debug
+> ```
 >
->   - 수정 후 다시 재구동하면 서버가 받은 HTTP요청 메시지를 출력하는 것을 확인할 수 있다.
->   - (참고) 운영서버에 이렇게 모든 요청 정보를 다 남기면 성능저하가 발생할 수 있다. 개발 단계에서만 적용하자
->
+> - 수정 후 다시 재구동하면 서버가 받은 HTTP요청 메시지를 출력하는 것을 확인할 수 있다.
+> - (참고) 운영서버에 이렇게 모든 요청 정보를 다 남기면 성능저하가 발생할 수 있다. 개발 단계에서만 적용하자
 
 지금까지의 내용을 그림으로 동작 방식을 알아보자
 
@@ -452,9 +451,9 @@ HttpServletRequest - 개요
         - form 파라미터 형식 조회
         - message body 데이터 직접 조회
   - HttpServletRequest 객체는 추가로 여러가지 부가기능도 함께 제공한다. - **임시 저장소 기능** - 해당 HTTP 요청이 시작부터 끝날 때 까지 유지되는 임시 저장소 - 저장: `request.setAttribute(name, value)` - 조회: `request.getAttribute(name)` - 세션 관리 기능 - `request.getSession(create: true)`
-> [!IMPORTANT]
->
-> HttpServletRequest, HttpServletResponse를 사용할 때 **가장 중요한 점은 이 객체들이 HTTP 요청 메시지, HTTP 응답 메시지를 편리하게 사용하도록 도와주는 객체**라는 점이다. 따라서 이 기능에 대해서 깊이있는 이해를 하려면 HTTP 스펙이 제공하는 요청, 응답메시지 자체를 이해햐야 한다.
+    > [!IMPORTANT]
+    >
+    > HttpServletRequest, HttpServletResponse를 사용할 때 **가장 중요한 점은 이 객체들이 HTTP 요청 메시지, HTTP 응답 메시지를 편리하게 사용하도록 도와주는 객체**라는 점이다. 따라서 이 기능에 대해서 깊이있는 이해를 하려면 HTTP 스펙이 제공하는 요청, 응답메시지 자체를 이해햐야 한다.
 
 ### HttpServletRequest - 기본 사용법
 
@@ -663,8 +662,10 @@ HttpServletRequest가 제공하는 기본 기능들을 알아보자.
   ```
 
 > [!TIP]
+>
 > 복수 파라미터에서 단일 파라미터 조회
-> `username=hello&username=kim` 과 같이 파라미터 이름은 하나인테, 값이 중복되면 어떻게 될까? `request.getParameter()`는 하나의 파라미터 이름에 대해서 단 하나의 값만 있을 때 사용해야 한다. <br>지금처럼 중복일 때는 `request.getParameterValuest()`를 사용해야 한다.<br>참고로 이렇게 중복일 때 `request.getParameter()`를 사용하면 `request.getParameterValues()`의 첫번째 값을 반환한다.
+>
+> `username=hello&username=kim` 과 같이 파라미터 이름은 하나인테, 값이 중복되면 어떻게 될까? <br>`request.getParameter()`는 하나의 파라미터 이름에 대해서 단 하나의 값만 있을 때 사용해야 한다. <br>지금처럼 중복일 때는 `request.getParameterValuest()`를 사용해야 한다.<br>참고로 이렇게 중복일 때 `request.getParameter()`를 사용하면 `request.getParameterValues()`의 첫번째 값을 반환한다.
 
 ### HTTP 요청 데이터 - POST HTML Form
 
@@ -696,7 +697,7 @@ HttpServletRequest가 제공하는 기본 기능들을 알아보자.
   </html>
   ```
 
-> [!NOTE] 정리
+> [!NOTE]
 >
 > - POSt의 HTML Form을 전송하면 웹 브라우저는 다음 형식으로 HTTP 메시지를 만든다
 >   - 요청 URL: `http://localhost:8080/request-param`
@@ -704,7 +705,7 @@ HttpServletRequest가 제공하는 기본 기능들을 알아보자.
 >   - message body: `username=hello&age=20`
 > - application/x-www-form-urlencoded 형식은 앞서 GET에서 살펴본 쿼리 파라미터 형식과 같다. 따라서 서버에서 요청 데이터 조회시 쿼리 파라미터 조회 메서드를 그대로 사용하면 된다. (클라이언트(웹 브라우저) 입장에서는 두 방식에 차이가 있지만, 서버 입장에서는 둘의 형식이 동일하므로, request.getParameter() 로 편리하게 구분없이 조회할 수 있다.) **정리하면 request.getParameter() 는 GET URL 쿼리 파라미터 형식도 지원하고, POST HTML Form 형식도 둘 다 지원한다.**
 
-> [!TIP] 참고
+> [!TIP]
 >
 > - **content-type은 HTTP메시지 바디의 데이터 형식으로 지정한다**
 > - **GET URL 쿼리 파라미터 형식**으로 클라이언트에서 서버로 데이터를 전달할 때는 HTTP 메시지 바디를 사용하지 않기 때문에 **content-type**이 없다.
@@ -755,7 +756,8 @@ postman 테스트
   - message body: hello!
   - 결과: messageBody = hello!
 
-> [!TIP] 참고
+> [!TIP]
+>
 > inputStream은 byte코드를 반환한다. byte코드를 우리가 읽을 수 있는 문자(String)로 보려면 문자표 (Charset)를 지정해주어야 한다. 여기서는 UTF_8 Charset을 지정해줌
 
 ### HTTP 요청 데이터 - API 메시지 바디 - JSON
@@ -815,7 +817,7 @@ JSON 형식 파싱 추가<br>
 
   ```
 
-> [!TIP] 참고
+> [!TIP]
 >
 > - JSON 결과를 파싱해서 사용할 수 있는 자바 객체로 변화하려면 Jackson, Gson 같은 JSON변환 라이브러리를 추가해서 사용해야한다. 스프링 부트로 spring MVC를 선택하면 기본으로 Jackson 라이브러리(`ObjectMapper`)를 함께 제공한다.
 > - HTML form 데이터도 메시지 바디를 통해 전송되므로 inputStream을 통해 직접 읽을 수 있다. 하지만 편리한 파리미터 조회 기능( `request.getParameter(...)` )을 이미 제공하기 때문에 파라미터 조회 기능을 사용하면 된다.
@@ -918,7 +920,7 @@ JSON 형식 파싱 추가<br>
   }
   ```
 
-  > [!TIP] 참고
+  > [!TIP]
   >
   > - HTTP응답으로 HTML을 반환할 때는 content-type을 text/html로 지정해야 한다
   > - 서블릿으로 HTML을 렌더링할때는 위와 같이 직접작성해야한다. (자바 코드로 작성하기 때문에 로직을 넣으면 동적으로 HTML 생성이 가능하다. (IF문도 넣을 수 있는 등)))
@@ -1246,13 +1248,15 @@ public class MemberListServlet extends HttpServlet {
   - memberRepository.findAll() 을 통해 모든 회원을 조회한다.
   - 회원 목록 HTML을 for 루프를 통해서 회원 수 만큼 동적으로 생성하고 응답한다.
 
-> [!TIP] 템플릿 엔진으로
+> [!TIP]
+> 템플릿 엔진으로
 >
 > - 지금까지 서블릿과 자바 코드만으로 HTML을 만들어보았다. 서블릿 덕분에 동적으로 원하는 HTML을 마음껏 만들 수 있다. 정적인 HTML 문서라면 화면이 계속 달라지는 회원의 저장 결과라던가, 회원 목록 같은 동적인 HTML을 만드는 일은 불가능 할 것이다.
 > - 그런데, 코드에서 보듯이 이것은 매우 복잡하고 비효율 적이다. 자바 코드로 HTML을 만들어 내는 것 보다 차라리 HTML 문서에 동적으로 변경해야 하는 부분만 자바 코드를 넣을 수 있다면 더 편리할 것이다. 이것이 바로 템플릿 엔진이 나온 이유이다. 템플릿 엔진을 사용하면 HTML 문서에서 필요한 곳만 코드를 적용해서 동적으로 변경할 수 있다.
 > - 템플릿 엔진에는 JSP, Thymeleaf, Freemarker, Velocity등이 있다. 다음 시간에는 JSP로 동일한 작업을 진행해보자.
 
-> [!NOTE] 참고
+> [!NOTE]
+> 참고
 >
 > - JSP는 성능과 기능면에서 다른 템플릿 엔진과의 경쟁에서 밀리면서, 점점 사장되어 가는 추세이다. 템플릿 엔진들은 각각 장단점이 있는데, 강의에서는 JSP는 앞부분에서 잠깐 다루고, 스프링과 잘 통합되는 Thymeleaf를 사용한다.
 > - Welcome 페이지 변경: 이제부터 서블릿에서 JSP, MVC 패턴, 직접 만드는 MVC 프레임워크, 그리고 스프링까지 단계적으로 확인해볼 것이다. 따라서 편리하게 각 내용을 참고할 수 있도록 welcome 페이지를 변경하자.
@@ -1380,7 +1384,7 @@ implementation 'javax.servlet:jstl'
 
 > [!TIP]
 > MVC 패턴의 등장
-> 
+>
 > 비즈니스 로직은 서블릿처럼 다른곳에서 처리하고, JSP는 목적에 맞게 HTML로 화면을 그리는 일에 집중하도록 하자. 과거 개발자들도 모두 비슷한 고민이 있었고, 그래서 MVC패턴이 등장했다. 우리도 직접 MVC패턴을 적용해서 프로젝트를 리팩터링 해보자
 
 ### MVC패턴 - 개요
@@ -1968,7 +1972,6 @@ public class FrontControllerServletV2 extends HttpServlet {
 > [!TIP]
 > 참고
 >
-> 
 > ```java
 > public void render(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException{
 > RequestDispatcher dispatcher = request.getRequestDispatcher(viewPath);
