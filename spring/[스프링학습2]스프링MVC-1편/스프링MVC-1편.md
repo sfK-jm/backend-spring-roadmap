@@ -402,9 +402,10 @@ ServletApplication에 `@ServletComponentScan` 에노테이션을 추가
   - `response`를 사용해서 응답 정보를 입력할 수 있다. (setContentType, setCharacterEncoding를 통해서 헤더 정보를 입력해준다. 그리고 write를 통해 HTTP 응답메시지 바디에 들어갈 정보를 입력한다.)
   - 실행해보면 웹 브라우저에 데이터가 정상적으로 노출되면 콘솔에서도 정상적으로 확인할 수 있다.
 
-> [!TIP] HTTP 요청 메시지 로그로 확인하기
+> [!TIP]
+> HTTP 요청 메시지 로그로 확인하기
 >
-> - application.properties파일에 다음과 같이 수정
+>  - application.properties파일에 다음과 같이 수정
 >
 >   ```txt
 >   logging.level.org.apache.coyote.http11=debug
@@ -412,6 +413,7 @@ ServletApplication에 `@ServletComponentScan` 에노테이션을 추가
 >
 >   - 수정 후 다시 재구동하면 서버가 받은 HTTP요청 메시지를 출력하는 것을 확인할 수 있다.
 >   - (참고) 운영서버에 이렇게 모든 요청 정보를 다 남기면 성능저하가 발생할 수 있다. 개발 단계에서만 적용하자
+>
 
 지금까지의 내용을 그림으로 동작 방식을 알아보자
 
@@ -450,9 +452,9 @@ HttpServletRequest - 개요
         - form 파라미터 형식 조회
         - message body 데이터 직접 조회
   - HttpServletRequest 객체는 추가로 여러가지 부가기능도 함께 제공한다. - **임시 저장소 기능** - 해당 HTTP 요청이 시작부터 끝날 때 까지 유지되는 임시 저장소 - 저장: `request.setAttribute(name, value)` - 조회: `request.getAttribute(name)` - 세션 관리 기능 - `request.getSession(create: true)`
-    > [!IMPORTANT]
-    >
-    > HttpServletRequest, HttpServletResponse를 사용할 때 **가장 중요한 점은 이 객체들이 HTTP 요청 메시지, HTTP 응답 메시지를 편리하게 사용하도록 도와주는 객체**라는 점이다. 따라서 이 기능에 대해서 깊이있는 이해를 하려면 HTTP 스펙이 제공하는 요청, 응답메시지 자체를 이해햐야 한다.
+> [!IMPORTANT]
+>
+> HttpServletRequest, HttpServletResponse를 사용할 때 **가장 중요한 점은 이 객체들이 HTTP 요청 메시지, HTTP 응답 메시지를 편리하게 사용하도록 도와주는 객체**라는 점이다. 따라서 이 기능에 대해서 깊이있는 이해를 하려면 HTTP 스펙이 제공하는 요청, 응답메시지 자체를 이해햐야 한다.
 
 ### HttpServletRequest - 기본 사용법
 
@@ -660,7 +662,8 @@ HttpServletRequest가 제공하는 기본 기능들을 알아보자.
   }
   ```
 
-> [!TIP] 복수 파라미터에서 단일 파라미터 조회
+> [!TIP]
+> 복수 파라미터에서 단일 파라미터 조회
 > `username=hello&username=kim` 과 같이 파라미터 이름은 하나인테, 값이 중복되면 어떻게 될까? `request.getParameter()`는 하나의 파라미터 이름에 대해서 단 하나의 값만 있을 때 사용해야 한다. <br>지금처럼 중복일 때는 `request.getParameterValuest()`를 사용해야 한다.<br>참고로 이렇게 중복일 때 `request.getParameter()`를 사용하면 `request.getParameterValues()`의 첫번째 값을 반환한다.
 
 ### HTTP 요청 데이터 - POST HTML Form
@@ -1368,13 +1371,16 @@ implementation 'javax.servlet:jstl'
 </html>
 ```
 
-> [!NOTE] 서블릿과 JSP의 한계
+> [!NOTE]
+> 서블릿과 JSP의 한계
 >
 > - 서블릿으로 개발할 때는 뷰(View)화면을 위한 HTML을 만드는 작업이 자바 코드에 섞여서 지저분하고 복잡했다.
 > - JSP를 사용한 덕분에 뷰를 생성하는 HTML 작업을 깔끔하게 가져가고, 중간중간 동적으로 변경이 필요한 부분에만 자바 코드를 적용햇다. 그런데 이렇게 해도 해결되지 않는 몇가지 고민이 남는다
 > - 회원 저장 JSP를 보자. 코드의 상위 절반은 회원을 저장하기 위한 비즈니스 로직이고, 나머지 하위 절반만 결과를 HTML로 보여주기 위한 뷰 영역이다. 회원 목록의 경우에도 마찬가지다. 코드를 잘 보면, JAVA코드, 데이터를 조회하는 리포지토리 등등 다양한 코드가 모두 JSP에 노출되어 있다. JSP가 너무 많은 역할을 한다. 이렇게 작은 프로젝트도 벌서 머리가 아파오는데, 수백 수천줄이 넘어가는 JSP는 끔찍하다.
 
-> [!TIP] MVC 패턴의 등장
+> [!TIP]
+> MVC 패턴의 등장
+> 
 > 비즈니스 로직은 서블릿처럼 다른곳에서 처리하고, JSP는 목적에 맞게 HTML로 화면을 그리는 일에 집중하도록 하자. 과거 개발자들도 모두 비슷한 고민이 있었고, 그래서 MVC패턴이 등장했다. 우리도 직접 MVC패턴을 적용해서 프로젝트를 리팩터링 해보자
 
 ### MVC패턴 - 개요
@@ -1959,8 +1965,10 @@ public class FrontControllerServletV2 extends HttpServlet {
 
 #### MyView.render()
 
-> [!TIP] 참고
+> [!TIP]
+> 참고
 >
+> 
 > ```java
 > public void render(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException{
 > RequestDispatcher dispatcher = request.getRequestDispatcher(viewPath);
