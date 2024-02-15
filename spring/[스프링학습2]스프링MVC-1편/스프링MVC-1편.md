@@ -52,17 +52,17 @@
 
 이번에는 서블릿에 대해서 알아보자
 
-다음과 같이 HTML Form양식을 작성하고 전송버튼을 클릭했다고 가정해보자
-<img src="./images/서블릿1.png">
+다음과 같이 HTML Form양식을 작성하고 전송버튼을 클릭했다고 가정해보자<br>
+<img src="./images/서블릿1.png"><br>
 
-그리고 웹 애플리케이션 서버를 우리가 직접 구현해야 한다고 가정해보자. 서버에서 처리해야 하는 업무는 다음과 같다
-<img src="./images/서블릿2.png">
+그리고 웹 애플리케이션 서버를 우리가 직접 구현해야 한다고 가정해보자. 서버에서 처리해야 하는 업무는 다음과 같다.<br>
+<img src="./images/서블릿2.png"><br>
 
 그러면 우리는 위와 같은 과정의 로직을 다 작성해야 할 것이다. 그런데 사실상 의미있는 비즈니스 로직은 username과 age를 가지고 데이터베이스에 저장 요청하는게 끝이다. 그런데 전/후 단계가 너무 많다. 모두가 다 똑같이 이것을 개발하고 있기에는 너무 효율적이지 않아서 **서블릿**이라는게 등장한다.
 
 ### 서블릿을 지원하는 WAS사용
 
-<img src="./images/서블릿3.png">
+<img src="./images/서블릿3.png"><br>
 서블릿은 위 이미지에서, 의미있는 비즈니스 로직 영역을 제외한 전/후 모든 작업을 모두 지원해준다
 
 <br/>**서블릿**
@@ -2692,3 +2692,244 @@ public class FrontControllerServletV5 extends HttpServlet {
 
 > [!NOTE]
 > 지금은 V3 컨트롤러를 사용할 수 있는 어댑터와 `ControllerV3`만 들어 있어서 크게 감흥이 없을 것이다. `ControllerV4`를 사용할 수 있도록 기능을 추가해보자
+
+### 유연한 컨트롤러2 - v5
+
+FrontControllerServletV5에 ControllerV4 기능도 추가해보자
+
+- **FrontControllerServletV5**클래스에 `ControllerV4`기능도 추가해보자
+
+  ```java
+      private void initHandlerMappingMap() {
+          handlerMappingMap.put("/front-controller/v5/v3/members/new-form", new MemberFormControllerV3());
+          handlerMappingMap.put("/front-controller/v5/v3/members/save", new MemberSaveControllerV3());
+          handlerMappingMap.put("/front-controller/v5/v3/members", new MemberListControllerV3());
+
+          // V4 추가
+          handlerMappingMap.put("/front-controller/v5/v4/members/new-form", new MemberFormControllerV4());
+          handlerMappingMap.put("/front-controller/v5/v4/members/save", new MemberSaveControllerV4());
+          handlerMappingMap.put("/front-controller/v5/v4/members", new MemberListControllerV4());
+      }
+
+      private void initHandlerAdapters() {
+          handlerAdapters.add(new ControllerV3HandlerAdapter());
+          handlerAdapters.add(new ControllerV4HandlerAdapter());
+      }
+  ```
+
+  핸들러 매핑( handlerMappingMap )에 ControllerV4 를 사용하는 컨트롤러를 추가하고, 해당 컨트롤러를 처리할 수 있는 어댑터인 ControllerV4HandlerAdapter 도 추가하자.
+
+`ControllerV4HandlerAdapter`: src > main > java > hello > servlet > web > frontcontroller > v5 > adapter 패키지 내부에 ControllerV4HandlerAdapter 클래스를 생성하자.
+
+```java
+package hello.servlet.web.frontcontroller.v5.adapter;
+
+import hello.servlet.web.frontcontroller.ModelView;
+import hello.servlet.web.frontcontroller.v4.ControllerV4;
+import hello.servlet.web.frontcontroller.v5.MyHandlerAdapter;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+
+public class ControllerV4HandlerAdapter implements MyHandlerAdapter {
+    @Override
+    public boolean supports(Object handler) {
+        return (handler instanceof ControllerV4);
+    }
+
+    @Override
+    public ModelView handle(HttpServletRequest request,
+                            HttpServletResponse response, Object handler) throws ServletException, IOException {
+
+        ControllerV4 controller = (ControllerV4) handler;
+
+        Map<String, String> paramMap = createParamMap(request);
+        Map<String, Object> model = new HashMap<>();
+
+        String viewName = controller.process(paramMap, model);
+
+        ModelView mv = new ModelView(viewName);
+        mv.setModel(model);
+
+        return mv;
+    }
+
+    private Map<String, String> createParamMap(HttpServletRequest request) {
+        Map<String, String> paramMap = new HashMap<>();
+        request.getParameterNames().asIterator()
+                .forEachRemaining(paramName -> paramMap.put(paramName, request.getParameter(paramName)));
+        return paramMap;
+    }
+}
+
+```
+
+하나씩 분석해보자
+
+- **support(Object handler)**
+  ```java
+  @Override
+  public boolean supports(Object handler) {
+      return (handler instanceof ControllerV4);
+  }
+  ```
+  - `handler`가 `ControllerV4`인 경우에만 처리하는 어뎁터이다.
+- **실행 로직**
+
+  ```java
+  ControllerV4 controller = (ControllerV4) handler;
+
+  Map<String, String> paramMap = createParamMap(request);
+  Map<String, Object> model = new HashMap<>();
+
+  String viewName = controller.process(paramMap, model);
+  ```
+
+  - handler를 ControllerV4로 캐스팅 하고, paramMap, model을 만들어서 해당 컨트롤러를 호출한다. 그리고 viewName을 반환한다.
+
+- **어댑터 변환**
+
+  ```java
+  ModelView mv = new ModelView(viewName);
+  mv.setModel(model);
+
+  return mv;
+  ```
+
+  - 어댑터에서 이 부분이 단순하지만 중요한 부분이다.
+  - 어댑터가 호출하는 `ControllerV4`는 뷰의 이름을 반환한다. 그런데 어댑터는 뷰의 이름이 아니라 `ModelView`를 만들어서 반환해야 한다. 여기서 어댑터가 꼭 필요한 이유가 나온다.
+  - `ControllerV4`는 뷰의 이름을 반환했지만, 어댑터는 이것을 ModelView로 만들어서 형식을 맞추어 반환한다.
+
+- **어댑터와 ControllerV4**
+
+  ```java
+  public interface ControllerV4 {
+    String process(Map<String, String> paramMap, Map<String, Object> model);
+  }
+
+  public interface MyHandlerAdapter {
+
+  }
+  ```
+
+> [!TIP]
+>
+> - 여기에는 써있지는 않지만, FrontControllerServletV5 클래스에서 초기화 설정한는 부분(initHandlerMappingMap(), initHandlerAdapters())만 밖으로 빼서 외부에서 주입하는 방식으로 변경하면, FrontControllerServletV5는 완벽하게 OCP를 지킬 수 있다. (Controller 버전이 늘어나서 기능이 확장되더라도, FrontControllerServletV5 코드의 변경은 없는 것이다.)
+> - FrontControllerServletV5는 핸들러 어댑터 인터페이스에만 의존하고있다. 따라서 구현 클래스로 뭐가 되던지 상관이 없다.
+
+### 정리
+
+지금까지 v1 ~ v5로 점진적으로 MVC 프레임워크를 발전시켜 왔다. 정리해보면 다음과 같다.
+
+> [!NOTE]
+>
+> - **V1: 프론트 컨트롤러를 도입**
+>   - 기존 구조를 최대한 유지하면서 프론트 컨트롤러를 도입
+> - **V2: View 분류**
+>   - 단순 반복되는 뷰 로직 분리
+> - **V3: Model**
+>   - 서블릿 종속성 제거
+>   - 뷰 이름 중복 제거
+> - **V4: 단순하고 실용적인 컨트롤러**
+>   - v3와 거의 비슷
+>   - 구현 입장에서 ModelView를 직접 생성해서 반환하지 않도록 편리한 인터페이스 제공
+> - **V5: 유연한 컨트롤러**
+>   - 어댑터 도입
+>   - 어댑터를 추가해서 프레임워크를 유연하고 확장성 있게 설계
+
+여기에 애노테이션을 사용해서 컨트롤러를 더 편리하게 발전시킬 수도 있다. 만약 애노테이션을 사용해서 컨트롤러를 편리하게 사용할 수 있게 하려면 어떻게 해야할까? 바로 애노테이션을 지원하는 어댑터를 추가하면 된다!
+
+다형성과 어댑터 덕분에 기존 구조를 유지하면서, 프레임워크의 기능을 확장할 수 있다.
+
+**스프링 MVC**
+
+- 여기서 더 발전시키면 좋겠지만, 스프링 MVC의 핵심 구조를 파악하는데 필요한 부분은 모두 만들어보았다. 사실은 지금까지 작성한 코드는 MVC 프레임워크의 핵심 코드의 축약 버전이고, 구조도 거의 같다.
+
+## 스프링 MVC - 구조 이해
+
+이번 섹터부터는 스프링 MVC의 구조에 대해서 알아보자<br>
+(이전 섹터에서 직접 만들었던 MVC 프레임워크와 비교해보면서 학습해보자)
+
+### 스프링 MVC 전체 구조
+
+직접 만든 MVC 프레임워크와 스프링 MVC를 비교해보자
+
+**직접 만든 MVC 프레임워크 구조**<br>
+<img src="./images/직접만든MVC프레임워크구조.png">
+
+**SpringMVC 구조**<br>
+<img src="./images/SpringMVC구조.png">
+
+- FrontController -> DispatcherServlet
+- handlerMappngMap -> HandlerMapping
+- MyHandlerAdapter -> HandlerAdapter
+- ModelView -> ModelAndView
+- viewResolver -> ViewResolver
+- MyView -> View
+- 참고
+  - 우리는 viewResolver를 메서드로 만들었지만, 스프링에서 ViewResolver는 인터페이스로 만들어져있다. (확장성이 높음)
+  - 스프링의 View는 인터페이스로 만들어져있다. (확장성이 높음)
+
+**먼저 DispatcherServlet의 구조를 살펴보자**<br>
+(`org.springframework.web.servlet.DispatcherServlet`)
+
+- 스프링 MVC도 프론트 컨트롤러 패턴으로 구현되어 있다.
+- 스프링 MVC의 프론트 컨트롤러가 다시 디스패처 서블릿(DispatcherServlet)이다.
+- 그리고 이 디스패처 서블릿이 바로 스프링 MVC의 핵심이다.
+- DispacherServlet 서블릿 등록
+  - DispacherServlet도 부모 클래스에서 HttpServlet을 상속 받아서 사용하고, 서블릿으로 동작한다
+    - 상속 관계: DispatcherServlet -> FrameworkServlet -> HttpServletBean -> HttpServlet
+  - 스프링 부트는 DispacherServlet을 서블릿으로 자동으로 등록하면서 모든 경로를 (urlPattern="/")에 대해서 매핑한다.
+    - (참고) 더 자세한 경로가 우선순위가 높다. 그래서 기존에 등록한 서블릿도 함께 등록된다.
+- 요청 흐름
+  - 서블릿이 호출되면 `HttpServlet`이 제공하는 `service()`가 호출된다.
+  - 스프링 MVC는 `DispatcherServlet`이 부모인 `FrameworkServlet`에서 `service()`를 오버라이드 해두었다.
+  - `FrameworkServlet.service()`를 시작으로 여러 메서드가 호출되면서 `DispacherServlet.doDispatch()`가 호출된다.
+  - 지금부터 DispacherServlet의 핵심인 doDispatch() 코드를 분석해보자. 최대한 간단히 설명하기 위해 예외처리, 인터셉터 기능은 제외했다.
+
+**DispacherServlet.doDispatch()**
+
+```java
+protected void doDispatch(HttpServletRequest request, HttpServletResponse
+response) throws Exception {
+  HttpServletRequest processedRequest = request;
+	HandlerExecutionChain mappedHandler = null;
+	ModelAndView mv = null;
+
+	// 1. 핸들러 조회
+	mappedHandler = getHandler(processedRequest);
+	if (mappedHandler == null) {
+		noHandlerFound(processedRequest, response);
+		return;
+	}
+
+	// 2. 핸들러 어댑터 조회 - 핸들러를 처리할 수 있는 어댑터
+	HandlerAdapter ha = getHandlerAdapter(mappedHandler.getHandler());
+
+	// 3. 핸들러 어댑터 실행 -> 4. 핸들러 어댑터를 통해 핸들러 실행 -> 5. ModelAndView 반환
+	mv = ha.handle(processedRequest, response, mappedHandler.getHandler());
+	processDispatchResult(processedRequest, response, mappedHandler, mv, dispatchException);
+}
+
+private void processDispatchResult(HttpServletRequest request,
+HttpServletResponse response, HandlerExecutionChain mappedHandler, ModelAndView
+mv, Exception exception) throws Exception {
+
+	// 뷰 렌더링 호출
+	render(mv, request, response);
+}
+
+protected void render(ModelAndView mv, HttpServletRequest request,
+HttpServletResponse response) throws Exception {
+	View view;
+	String viewName = mv.getViewName();
+	// 6. 뷰 리졸버를 통해서 뷰 찾기, 7. View 반환
+	view = resolveViewName(viewName, mv.getModelInternal(), locale, request);
+	// 8. 뷰 렌더링
+	view.render(mv.getModelInternal(), request, response);
+}
+```
