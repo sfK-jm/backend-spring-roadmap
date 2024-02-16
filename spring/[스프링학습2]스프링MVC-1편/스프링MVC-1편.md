@@ -2933,3 +2933,98 @@ HttpServletResponse response) throws Exception {
 	view.render(mv.getModelInternal(), request, response);
 }
 ```
+
+### SpringMVC 구조
+
+<img src="./images/SpringMVC구조.png"><br>
+
+**동작 순서**
+
+1. **핸들러 조회**: 핸들러 매핑을 통해 요청 URL에 매핑된 핸들러(컨트롤러)를 조회한다.<br>(스프링은 URL뿐만 아니라, 다른 여러가지 추가 정보(HTTP헤더 정보 등)도 활용한다.)
+2. **핸들러 어댑터 조회**: 핸들러를 실행할 수 있는 핸들러 어댑터를 조회한다.
+3. **핸들러 어댑터 실행**: 핸들러 어댑터를 실행한다
+4. **핸들러 실행**: 핸들러 어댑터가 실제 핸들러를 실행한다.
+5. **ModelAndView 반환**: 핸들러 어댑터는 핸들러가 반환하는 정보를 ModelAndView로 반환해서 반환한다.
+6. **ViewResolver 호출**: 뷰 리졸러를 찾고 실행한다
+   - JSP의 경우: `InternalResourceViewResolver`가 자동등록되고, 사용된다.
+7. **View 반환**: 뷰 리졸버는 뷰의 논리 이름을 물리 이름으로 바꾸고, 랜더링 역할을 담당하는 뷰 객체를 반환한다.
+   - JSP의 경우 `InternalResourceView(JstlView)`를 반환하는데, 내부에 forward()로직이 있다.
+8. **뷰 랜더링**: 뷰를 통해서 뷰를 렌더링 한다.
+
+**인터페이스 살펴보기**
+
+- 스프링 MVC의 큰 장점은 `DispatcherServlet`코드의 변경 없이, 원하는 기능을 변경하거나 확장할 수 있다는 점이다. 지금까지 설명한 대부분을 확장 가능할 수 있게 인터페이스로 제공한다.
+- 이 인터페이스들만 구현해서 `DispatcherServlet`에 등록하면 여러분만의 컨트롤러를 만들 수도 있다.
+
+**주요 인터페이스 목록**
+
+- 핸들러 매핑: `org.springframework.web.servlet.HandlerMapping`
+- 핸들러 어댑터: `org.springframework.web.servlet.HandlerAdapter`
+- 뷰 리졸버: `org.springframework.web.servlet.ViewResolver`
+- 뷰: `org.springframework.web.servlet.View`
+
+> [!NOTE]
+>
+> - 스프링 MVC는 코드 분량도 매우 많고, 복잡해서 내부 구조를 다 파악하는 것은 쉽지 않다. 사실 해당 기능을 직접 확장하거나 나만의 컨트롤러를 만드는 일은 없으므로 걱정하지 않아도 된다. 왜냐하면 스프링 MVC는 전 세계 수 많은 개발자들의 요구사항에 맞추어 기능을 계속 확장해왔고, 그래서 우리가 웹 애플리케이션을 만들 때 필요로 하는 대부분의 기능이 이미 다 구현되어 있다.
+> - 그래도 이렇게 핵심 동작방식을 알아두어야 향후 문제가 발생했을 때 어떤 부분에서 문제가 발생했는지 쉽게 파악하고, 문제를 해결할 수 있다. 그리고 확장 포인트가 필요할때, 어떤 부분을 확장해야 할지 감을 잡을 수 있다. 실제 다른 컴포넌트를 제공하거나 기능을 확장하는 부분들을 이후에 소개할 것이다. 지금은 전체적인 구조가 이렇게 되어 있구나 하고 이해하면 된다.
+
+### 핸들러 매핑과 핸들러 어댑터
+
+핸들러 매핑과 핸들러 어댑터가 어떤 것들이 어떻게 사용되는지 알아보자.<br>
+지금은 전혀 사용하지 않지만, 과거에 주로 사용했던 스프링이 제공하는 간단한 컨트롤러로 핸들러 매핑과 어댑터를 이해해보자.
+
+**Controller 인터페이스**<br>(과거 버전 스프링 컨트롤러)
+
+`org.springframework.web.servlet.mvc.Controller`
+
+```java
+public interface Controller {
+  ModelAndView handleRequest(HttpServletRequest request, HttpServletResonse response) throws Exception;
+}
+```
+
+- 스프링도 처음에는 이런 딱딱한 형식의 컨트롤러를 제공했다.
+- (참고) Controller인터페이스 @Controller 애노테이션과는 전혀 다르단.
+
+간단하게 구현해보자
+
+`OldController`: src > main > java > hello > servlet > web > springmvc > old 패키지 생성 후, 내부에 OldController 클래스를 생성하자.
+
+```java
+package hello.servlet.web.springmvc.old;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.stereotype.Component;
+import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.servlet.mvc.Controller;
+
+@Component("/springmvc/old-controller")
+public class OldController implements Controller {
+    @Override
+    public ModelAndView handleRequest(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        System.out.println("OldController.handleRequest");
+        return null;
+    }
+}
+```
+
+- `@Component`: 이 컨트롤러는 `springmvc/old-controller`이라는 이름의 스프링 빈으로 등록되었다. (빈의 이름으로 URL을 매핑할 것이다)
+
+/springmvc/old-controller로 접속하면 정상적으로 출력이 된다.
+
+**이 컨트롤러는 어떻게 호출될 수 있을까?**
+
+스프링 MVC구조
+
+<img src="./images/SpringMVC구조.png">
+
+- 이 컨트롤러가 호출되려면 다음 2가지가 필요하다
+  - HandlerMapping(핸들러 매핑)
+    - 핸들러 매핑에서 이 컨트롤러를 찾을 수 있어야 한다.
+    - 예) 스프링 빈의 이름으로 핸들러를 찾을 수 있는 핸들러 매핑이 필요한다.
+  - HandlerAdapter(핸들러 어댑터)
+    - 핸들러 매핑을 통해서 찾은 핸들러를 실행할 수 있는 핸들러 어댑터가 필요하다
+    - 에) `Controller`인터페이스를 실행할 수 있는 핸들러 어댑터를 찾고 실행해야 한다.
+
+스프링은 이미 필요한 핸들러 매핑과 핸들러 어댑터를 대부분 구현해두었다. 개발자가 직접 핸들러 매핑과 핸들러 어댑터를 만드는 일은 거의 없다.
