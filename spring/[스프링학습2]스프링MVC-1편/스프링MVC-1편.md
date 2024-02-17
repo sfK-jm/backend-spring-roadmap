@@ -3400,3 +3400,123 @@ public class SpringMemberControllerV2 {
 그런데 아직 뭔가 불편하다. 메소드마다 ModelAndView를 만들어서 반환해야 한다.
 
 다음에는, 이전에 v4 버전에서 뷰의 이름만 반환했던 것처럼 개선해보자
+
+### 스프링 MVC - 실용적인 방식
+
+MVC 프레임워크 만들기에서 v3은 ModelView를 개발자가 직접 생성해서 반환했기 때문에, 불편했던 기억이 날 것이다.물론 v4를 만들면서 실용적으로 개선한 기억도 날 것이다.
+
+스프링 MVC는 개발자가 편리하게 개발할 수 있도록 수 많은 편의 기능을 제공한다. 실무에서는 지금부터 설명하는 방식을 주로 사용한다.
+
+`실용적인 컨트롤러`: src > main > java > hello > servlet > web > springmvc > v3 패키지를 생성하고, 내부에 SpringMemberControllerV3 클래스를 생성하자.
+
+```java
+package hello.servlet.web.springmvc.v3;
+
+import hello.servlet.domain.member.Member;
+import hello.servlet.domain.member.MemberRepository;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import java.util.List;
+
+@Controller
+@RequestMapping("/springmvc/v3/members")
+public class SpringMemberControllerV3 {
+
+    private MemberRepository memberRepository = MemberRepository.getInstance();
+
+    @GetMapping("/new-form")
+    public String newForm() {
+        return "new-form";
+    }
+
+    @PostMapping("/save")
+    public String save(@RequestParam("username") String username,
+                       @RequestParam("age") int age,
+                       Model model) {
+        Member member = new Member(username, age);
+        memberRepository.save(member);
+        model.addAttribute("member", member);
+
+        return "save-result";
+    }
+
+    @GetMapping
+    public String members(Model model) {
+        List<Member> members = memberRepository.findAll();
+        model.addAttribute("members", members);
+
+        return "members";
+    }
+}
+```
+
+**ViewName 직접 반환**
+
+- 뷰의 논리 이름을 반환할 수 있다.
+- **애노테이션 기반의 컨트롤러는** 인터페이스로 고정되어 있지 않고, 유연하게 설계되어 있기 때문에, **modelAndView로 반환해도 되고, 문자를 반환해도 무관하다.** (그러면 그것을 viewNmae으로 인지하고 처리한다.)
+
+**@RequestParam 사용**
+
+- 요청파라미터를 처리하는 애노테이션
+- 애노테이션 기반의 컨트롤러는, 파라미터로 HttpServletRequest, HttpServletResponse뿐만 아니라, @RequestParam(요청 파라미터를 직접 받는다. 타입캐스팅이나 타입변환까지 자동으로 처리한다.) Model 등을 받을 수 있다.
+- `@RequestParam("username")`은 `request.getParameter("username")`와 거의 같은 코드라 생각하면 된다.
+  - 물론 GET 쿼리 파라미터, POST Form 방식을 모두 지원한다.
+
+**Model 파리미터**
+
+- `save()`, `members()`를 보면 Model을 파라미터로 받는것을 확인할 수 있다. 스프링 MVC도 이런 편의 기능을 제공한다. (스프링이 제공하는 Model을 그래도 쓸 수 있다.)
+
+**@RequestMapping -> @GetMapping, @PostMapping**
+
+- `@RequestMapping`은 URL만 매칭하는 것이 아니라, Http Method도 함께 구분할 수 있다. 예를 들어서 URL이 `/new-form`이고, Http Method가 GET인 경우를 모두 만족하는 매핑을 하려면 다음과 같이 처리하면 된다.
+  ```java
+  @RequestMapping(value = "/new-form", method = RequestMethod.GET)
+  public String newForm() {
+    return "new-form"
+  }
+  ```
+- 이것을 @GetMapping , @PostMapping 으로 더 편리하게 사용할 수 있다. (참고로 Get, Post, Put, Delete, Patch 모두 애노테이션이 준비되어 있다.)
+  ```java
+  @GetMapping("/new-form")
+  public String newForm() {
+    return "new-form"
+  }
+  ```
+  - (참고) @GetMapping 코드를 열어서 보면 @RequestMapping 애노테이션을 내부에 가지고 있는 모습을 볼 수 있다.
+
+#### 정리
+
+**직접 만든 MVC 프레임워크 구조**
+<img src="./images/직접만든MVC프레임워크구조.png"><br>
+
+**SpringMVC 구조**
+<img src="./images/SpringMVC구조.png"><br>
+
+- 클라이언트의 HTTP요청이 오면, DispatcherServlet(=프론트 컨트롤러 역할)은 핸들러 매핑에서 핸들러를 조회한다. (스프링 부트는 미리 여러개의 핸들러를 등록해둔다. 그중에서 순차적으로 찾아서 핸들러 매핑이 처리할 수 있는 핸들러를 찾아준다.)
+- 해당하는 핸들러를 처리할 수 있는 어댑터가 있는지 핸들러 어댑터 목록에서 조회한다.
+- 핸들러 어댑터가 실행되고(호출), 핸들러 어댑터를 통해서 실제 핸들러를 호출한다..
+- 핸들러 어댑터는 ModelAndView를 반환한다.
+- 그리고 viewResolver를 호출해서 뷰가 반환된다.
+- render 메서드가 호출되면서, 실제 뷰가 렌더링 된다.(JSP의 경우 JSP forward를 통해 렌더링 된다.)
+
+### 스프링 MVC - 기본기능 1
+
+- 스프링 부트 스타터 사이트로 이동해서 스프링 프로젝트를 생성하고(start.spring.io), 아래와 같이 정보를 입력하고 프로젝트를 생성하자.
+  - Project: Gradle - Groovy
+  - Language: Java
+  - Spring Boot: 2.4.3
+  - Project Metadata
+    - Group: hello
+    - Artifact: springmvc
+    - Packaging: Jar
+    - Java: 11
+  - Dependendies
+    - Spring Web
+    - Thymeleaf
+  - Lombok
+- 프로젝트 생성 후 실행해보자.
