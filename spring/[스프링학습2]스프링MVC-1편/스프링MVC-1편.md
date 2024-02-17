@@ -3028,3 +3028,141 @@ public class OldController implements Controller {
     - 에) `Controller`인터페이스를 실행할 수 있는 핸들러 어댑터를 찾고 실행해야 한다.
 
 스프링은 이미 필요한 핸들러 매핑과 핸들러 어댑터를 대부분 구현해두었다. 개발자가 직접 핸들러 매핑과 핸들러 어댑터를 만드는 일은 거의 없다.
+
+**스프링 부트가 자동 등록하는 핸ㄷ르러 매핑과 핸들러 어댑터**<br>
+(실제로는 더 많지만, 중요한 부분 위주로 설명하기 위해 일부 생략)
+
+- **HandlerMapping**
+  - `0순위` = **RequestMappingHandlerMapping**
+    - 애노테이션 기반의 컨트롤러인 @RequestMapping에서 사용
+    - @Controller, @RequestMapping이 있는 것을 인식해서 찾아준다.
+  - `1순위` = **BeanNameUrlHandlerMapping**
+    - (위에서 못찾으면)스프링 빈의 이름으로 핸들러를 찾는다.(요청URL 경로와 똑같은 이름 (/springmvc/old-controller)의 스프링 빈을 찾는다.)
+- **HandlerAdapter** (핸들러 매핑을 통해서 핸들러를 찾게되면 핸들러 어댑터가 동작한다.)
+  - `0순위` = RequestMappingHandlerAdapter
+    - 애노테이션 기반의 컨트롤러인 @RequestMapping에서 사용
+  - `1순위` = HttpRequestHandlerAdapter
+    - HttpRequestHandler 처리
+  - `2순위` = SimpleControllerHandlerAdapter
+    - Controller 인터페이스(애노테이션x, 과거에 사용) 처리.
+
+핸들러 매핑도, 핸들러 어댑터도 모두 순서대로 찾고 만약 없으면 다음 순서(순위)로 넘어간다.
+
+1. 핸들러 매핑으로 핸들러 조회
+   - `HandlerMapping`을 순서대로 실행해서, 핸들러를 찾는다.
+   - 이 경우 빈 이름으로 핸들러를 찾아야 하기 때문에 이름 그대로 빈 이름으로 핸들러를 찾아주는 `BeanNameUrlHandlerMapping`가 실행에 성공하고 핸들러인 `OldController`를 반환한다.
+2. 핸들러 어댑터 조회
+   - `HandlerAdapter`의 `supports()`를 순서대로 호출한다
+   - `SimpleControllerHandlerAdapter`가 `Controller`인터페이스를 지원하므로 대상이 된다.
+3. 핸들러 어댑터 실행
+   - 디스패처 서블릿이 조회한 `SimpleControllerHandlerAdapter`를 실행하면서 핸들러 정보도 함께 넘겨준다.
+   - `SimpleControllerHandlerAdapter`는 핸들러인 `OldController`를 내부에서 실행하고, 그 결과를 반환한다.
+
+- 정리 - OldController 핸들러 매핑, 어댑터
+  - `OldController`를 실행하면서 사용된 객체는 다음과 같다.
+    - HandlerMapping = `BeanNameUrlHandlerMapping`
+    - HandlerAdapter = `SimpleControllerHandlerAdapter`
+
+**HttpRequestHandler**
+
+- 핸들러 매핑과, 어댑터를 더 잘 이해하기 위해 Controller 인터페이스가 아닌 다른 핸들러를 알아보자. <br>
+  `HttpRequestHandler`핸들러(컨트롤러)는 서블릿과 가장 유사한 형태의 핸들러이다.(리턴타입이 void이다. 해당 메서드 안에서 다 처리해야 한다.)
+
+간단하게 구현해보자
+`MyHttpRequestHandler`: src > main > java > hello > servlet > web > springmvc > old 패키지 내부에 MyHttpRequestHandler 클래스를 생성하자.
+
+```java
+package hello.servlet.web.springmvc.old;
+
+@Component("/springmvc/request-handler")
+public class MyHttpRequestHandler implements HttpRequestHandler {
+    @Override
+    public void handleRequest(HttpServletRequest request,
+                              HttpServletResponse response) throws ServletException, IOException {
+        System.out.println("MyHttpRequestHandler.handleRequest");
+    }
+}
+```
+
+1. 핸들러 매핑으로 핸들러 조회
+   - `HandlerMapping`을 순서대로 실행해서, 핸들러를 찾는다
+   - 이 경우 빈 이름으로 핸들러를 찾아야 하기 때문에 이름 그대로 빈 이름으로 핸들러를 찾아주는 `BeanNameUrlHandlerMapping`가 실행에 성공하고 핸들러인 `MyHttpRequestHandler`를 반환한다.
+2. 핸들러 어댑터 조회
+   - `HandlerAdapter`의 `supports()`를 순서대로 호출한다
+   - `HttpRequestHandlerAdapter`가 `HttpRequestHandler`인터페이스를 지원하므로 대상이 된다.
+3. 핸들러 어댑터 실행
+   - 디스패처 서블릿이 조회한 `HttpRequestHandlerAdapter`를 실행하면서 핸들러 정보도 함께 넘겨준다.
+   - `HttpRequestHandlerAdapter`는 핸들러인 `MyHttpRequestHandler`를 내부에서 실행하고, 그 결과를 반환한다.
+
+- **정리 - MyHttpRequestHandler 핸들러 매칭, 어댑터**
+  - `MyHttpRequestHandler`를 실행하면서 사용된(적용된) 객체는 다음과 같다.
+    - **HandlerMapping** = `BeanNameUrHandlerMapping`
+    - **HandlerAdapter** = `HttpRequestHandlerAdapter`
+
+### 뷰 리졸버
+
+이번에는 전체 구조의 마지막인 뷰 리졸버에 대해서 알아보자
+
+`OldController`
+
+```java
+package hello.servlet.web.springmvc.old;
+
+@Component("/springmvc/old-controller")
+public class OldController implements Controller {
+    @Override
+    public ModelAndView handleRequest(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        System.out.println("OldController.handleRequest");
+        return new ModelAndView("new-form");
+    }
+}
+```
+
+- 아직 뷰를 찾지 못하기 때문에 웹 브라워젱 Error Page가 나온다
+
+application.properties에 다음 코드를 추가하자
+
+```txt
+spring.mvc.view.prefix=/WEB-INF/views/
+spring.mvc.view.suffix=.jsp
+```
+
+- 이러면 등록 폼이 정상적으로 출력되는 것을 확인할 수 있다.
+
+#### 뷰 리졸버 - InternalResourceViewResolver
+
+- 스프링 부트는 애플리케이션이 띄어질 때 여러가지를 자동으로 등록하는데, 그 중에서 `InternalResourceViewResolver`라는 뷰 리졸버도 자동을 등록해준다. 이때 `application.properties`에 등록한 `spring.mvc.view.prefix`, `spring.mvc.view.suffix`설정 정보를 사용해서 등록한다.
+  - (참고) 직접할수도 있다.
+    ```java
+    @Bean
+    ViewResolver internalResourceViewResolver() {
+      return new internalResourceViewResolver("/WEB-INF/views/", ".jsp");
+    }
+    ```
+- 참고로 권장하지는 않지만 설정 없이 다음과 같이 전체 경로를 주어도 동작하기는 한다.
+  - `return new ModelAndView("/WEB-INF/views/new-form.jsp");`
+
+#### 뷰 리졸버 동작 방식
+
+<img src="./images/SpringMVC구조.png"><br>
+
+- **스프링 부트가 등록하는 뷰 리졸버**(실제로는 더 많지만, 중요한 부분 위졸 설명하기 위해 일부 생략)
+  - `1순위` = **BeanNameViewResolver**: 빈 이름으로 뷰를 찾아서 반환한다. (예: 엑셀 파일 생성 기능에 사용 (ex. excelDownloadView등))
+  - `2순위` = **InternalResourceViewResolver**: JSP를 처리할 수 있는 뷰를 반환한다.
+
+1. 핸들러 어댑터 호출
+   - 핸들러 어댑터를 통해 `new-form`이라는 논리 뷰 이름을 획득한다.
+2. ViewResolver 호출
+   - `new-form`이라는 뷰 이름으로`viewResolver`리스트를 순서대로 호출한다.
+   - `BeanNameViewResolver`는 `new-form`이라는 이름의 스프링 빈으로 등록된 뷰를 찾아야 하는데 없다.
+   - `InternalResourceViewResolver`가 호출된다.
+3. InternalResourceViewResolver
+   - 이 뷰 리졸버는 `InternalResourceView`를 반환한다.
+4. 뷰 - internalResourceView
+   - `InternalResourceView`는 JSP처럼 포워드 `forward()`를 호출해서 처리할 수 있는 경우에 사용한다.
+5. view.render()
+   - `view.render()`가 호출되고 `InternalResourceView`는 `forward()`를 사용해서 JSP를 실행한다.
+
+> [!TIP]
+>
+> - `InternalResourceViewResolver` 는 만약 JSTL 라이브러리가 있으면 `InternalResourceView` 를 상속받은 `JstlView` 를 반환한다. `JstlView` 는 JSTL 태그 사용시 약간의 부가 기능이 추가된다.
