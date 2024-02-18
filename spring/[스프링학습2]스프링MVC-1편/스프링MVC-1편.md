@@ -3504,7 +3504,7 @@ public class SpringMemberControllerV3 {
 - 그리고 viewResolver를 호출해서 뷰가 반환된다.
 - render 메서드가 호출되면서, 실제 뷰가 렌더링 된다.(JSP의 경우 JSP forward를 통해 렌더링 된다.)
 
-### 스프링 MVC - 기본기능 1
+## 스프링 MVC - 기본기능 1
 
 - 스프링 부트 스타터 사이트로 이동해서 스프링 프로젝트를 생성하고(start.spring.io), 아래와 같이 정보를 입력하고 프로젝트를 생성하자.
   - Project: Gradle - Groovy
@@ -3518,5 +3518,390 @@ public class SpringMemberControllerV3 {
   - Dependendies
     - Spring Web
     - Thymeleaf
-  - Lombok
-- 프로젝트 생성 후 실행해보자.
+    - Lombok
+
+`/resources/static`위치에 `index.html` 파일을 두면 Welcome페이지로 처리해준다. (스프링 부트가 지원하는 정적 컨텐츠 위치에 /index.html 이 있으면 된다.)
+
+```html
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Title</title>
+  </head>
+  <body>
+    <ul>
+      <li>
+        로그 출력
+        <ul>
+          <li><a href="/log-test">로그 테스트</a></li>
+        </ul>
+      </li>
+      <li>
+        요청 매핑
+        <ul>
+          <li><a href="/hello-basic">hello-basic</a></li>
+          <li><a href="/mapping-get-v1">HTTP 메서드 매핑</a></li>
+          <li><a href="/mapping-get-v2">HTTP 메서드 매핑 축약</a></li>
+          <li><a href="/mapping/userA">경로 변수</a></li>
+          <li><a href="/mapping/users/userA/orders/100">경로 변수 다중</a></li>
+          <li><a href="/mapping-param?mode=debug">특정 파라미터 조건 매핑</a></li>
+          <li>특정 헤더 조건 매핑(POST MAN 필요)</li>
+          <li>미디어 타입 조건 매핑 Content-Type(POST MAN 필요)</li>
+          <li>미디어 타입 조건 매핑 Accept(POST MAN 필요)</li>
+        </ul>
+      </li>
+      <li>
+        요청 매핑 - API 예시
+        <ul>
+          <li>POST MAN 필요</li>
+        </ul>
+      </li>
+      <li>
+        HTTP 요청 기본
+        <ul>
+          <li><a href="/headers">기본, 헤더 조회</a></li>
+        </ul>
+      </li>
+      <li>
+        HTTP 요청 파라미터
+        <ul>
+          <li><a href="/request-param-v1?username=hello&age=20">요청 파라미터 v1</a></li>
+          <li><a href="/request-param-v2?username=hello&age=20">요청 파라미터 v2</a></li>
+          <li><a href="/request-param-v3?username=hello&age=20">요청 파라미터 v3</a></li>
+          <li><a href="/request-param-v4?username=hello&age=20">요청 파라미터 v4</a></li>
+          <li><a href="/request-param-required?username=hello&age=20">요청 파라미터 필수</a></li>
+          <li><a href="/request-param-default?username=hello&age=20">요청 파라미터 기본 값</a></li>
+          <li><a href="/request-param-map?username=hello&age=20">요청 파라미터 Map</a></li>
+          <li><a href="/model-attribute-v1?username=hello&age=20">요청 파라미터 @ModelAttribute v1</a></li>
+          <li><a href="/model-attribute-v2?username=hello&age=20">요청 파라미터 @ModelAttribute v2</a></li>
+        </ul>
+      </li>
+      <li>
+        HTTP 요청 메시지
+        <ul>
+          <li>POST MAN</li>
+        </ul>
+      </li>
+      <li>
+        HTTP 응답 - 정적 리소스, 뷰 템플릿
+        <ul>
+          <li><a href="/basic/hello-form.html">정적 리소스</a></li>
+          <li><a href="response-view-v1">뷰 템플릿 v1</a></li>
+          <li><a href="response-view-v2">뷰 템플릿 v2</a></li>
+        </ul>
+      </li>
+      <li>
+        HTTP 응답 - HTTP API, 메시지 바디에 직접 입력
+        <ul>
+          <li><a href="/response-body-string-v1">HTTP API String v1</a></li>
+          <li><a href="/response-body-string-v2">HTTP API String v2</a></li>
+          <li><a href="/response-body-string-v3">HTTP API String v3</a></li>
+          <li><a href="/response-body-json-v1">HTTP API JSON v1</a></li>
+          <li><a href="/response-body-json-v2">HTTP API JSON v2</a></li>
+        </ul>
+      </li>
+    </ul>
+  </body>
+</html>
+```
+
+> [!TIP]
+> Packaging는 War가 아니라 **Jar**를 선택하자. (War는 몇 가지 기능이 더 들어간다. War는 1) 보통 톰캣을 별도로 설치하고 거기에 빌드된 파일을 넣을때 사용한다. 2) 그리고 JSP를 쓰는 경우 War를 선택해야 한다.) JSP를 사용하지 않고, 내장 톰캣 기능에 최적화해서 사용하는 경우 Jar를 사용하는 것이 좋다. 앞으로 스프링 부트를 사용하면 이 방식을 주로 사용하게 된다.
+
+### 로깅 간단히 알아보기
+
+앞으로 로그를 사용할 것이기 때문에, 이번에는 로그에 대해서 간단히 알아보자
+
+운영 시스템에서는 `System.out.println()`같은 시스템 콘솔을 사용해서 필요한 정보를 출력하지 않고, 별도의 로깅 라이브러리를 사용해서 로그를 출력한다. 참고로 로그 관련 라이브러리도 많고, 깊게 들어가면 끝이 없기 때문에 여기서는 최소한의 사용 방법만 알아본다.
+
+**로그깅 라이브러리**
+
+- 스프링 부트 라이브러리를 사용하면 스프링 부트 로깅 라이브러리(`spring-boot-starter-loggin`) 가 함께 포함된다. 스프링 부트 로깅 라이브러리는 기본으로 다음 로깅 라이브러리를 사용한다
+  - SLF4J
+  - Logback
+    > [!TIP]
+    > 로그 라이브러리는 Logback, Log4J, Log4J2등등 수 많은 라이브러리가 있는데, 그것을 통합해서 인터페이스로 제공하는 것이 바로 SLF4J 라이브러리다. 쉽게 이야기해서 SLF4J는 인터페이스이고, 그 구현체로 Logback같은 로그 라이브러리를 선택하면 된다. 실무에서는 스프링부트가 기본으로 제공하는 Logback을 대부분 사용한다. (로그를 출력할 때는 SLF4J라는 인터페이스를 사용하고, 그 구현체로 Logback을 사용한다.)
+
+**로그 선언**
+
+- `private Logger log = LoggerFactory.getLogger(getClass());`
+- `private static final Logger log = LoggerFactory.getLogger(Xxx.class)`
+- `@Slf4j`: 롬복 사용 가능 (롬복이 제공하는 애노테이션이다. 이렇게 적용하면 롬복이 위 코드를 자동으로 반영한다.)
+
+**로그 호출**
+
+- `log.info("hello")`
+- System.out.println("hello")
+- 시스템 콘솔로 직접 출력하는 것 보다 로그를 사용하면 다음과 같은 장점이 있다. 실무에서는 항상 로그를 사용해야 한다.
+
+로그 선언과 호출을 코드로 확인해보자.
+
+`LogTestController`: src > main > java > hello > springmvc > basic 패키지를 생성하고, 내부에 LogTestController 클래스를 생성하자.
+
+```java
+package hello.springmvc.basic;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class LogTestController {
+
+    private final Logger log = LoggerFactory.getLogger(getClass());
+
+    @RequestMapping("/log-test")
+    public String logTest() {
+        String name = "Spring";
+
+        System.out.println("name = " + name);
+
+        log.trace("trace log = {}", name);
+        log.debug("debug log = {}", name);
+        log.info("info log = {}", name);
+        log.warn("warn log = {}", name);
+        log.error("error log = {}", name);
+
+        // 로그를 사용하지 않아도 a+b 계산 로직이 먼저 실행됨, 이런 방식으로 사용하면 x
+        log.debug("String concat log = " + name);
+
+        return "ok";
+    }
+}
+```
+
+- 로그가 출력되는 포멧 확인
+  - 시간, 로그 레벨, 프로세스 ID, 쓰레드 명, 클래스명, 로그 메시지
+- 로그 레벨 설정을 변경해서 출력 결과를 보자.
+  - LEVEL: TRACE > DEBUG > INFO > WARN > ERROR
+  - (일반적으로) 개발 서버는 debug 출력
+  - (일반적으로) 운영 서버는 info 출력
+- `@Slf4j` 로 변경
+
+**로그 레벨 설정**
+`application.properties`
+
+```txt
+# 전체 로그 레벨 설정(기본 info)
+logging.level.root=info
+
+# hello.springmvc 패키지와 그 하위 로그 레벨 설정
+logging.level.hello.springmvc=trace
+
+```
+
+**올바른 로그 사용법**
+
+- `log.debug("data=" + data)
+  - 로그 출력 레벨을 info로 설정해도 위 코드에 있는 "data="+data가 실제 실행이 되어버린다. 결과적으로 문자 더하기 연산이 발생한다. (자바 언어는 debug 메서드를 호출하기 전에, 더하기 연산이 있다면 더하는 연산을 먼저 수행해버린다. (연산이 일어나면서 메모리도 사용하고, cpu도 사용한다.) 따라서 해당 로그는 남겨지지도 않는데 불필요한 연산이 일어나면서 쓸모없이 리소스를 사용하게 된다.)
+- `log.debug("data={}", data)`
+  - 로그 출력 레벨을 info로 설정하면 아무일도 발생하지 않는다. 따라서 앞과 같은 의미없는 연산이 발생하지 않는다.(debug 메서드를 호출하면서 파라미터만 넘기기 때문에 아무 연산이 일어나지 않는다.)
+
+**로그 사용시 장점**
+
+- 쓰레드 정보, 클래스 이름같은 부가 정보를 함께 볼 수 있고, 출력 모양을 조정할 수 있다.
+- **로그 레벨에 따라 개발 서버에서는 모든 로그를 출력하고, 운영서버에서는 출력하지 않는 등 로그를 출력하지 않는 등 로그를 상황에 맞게 조절할 수 있다. (애플리케이션 코드를 수정하지 않고, 설정만으로 로그 레벨을 환경별로 다르게 지정할 수 있다.)**
+- 시스템 아웃 콘솔에만 출력하는 것이 아니라, 파일이나 네트워크 등, 로그를 별도의 위치에 남길 수 있도록 설정할 수도 있다. (콘솔에 남기면서 파일로 남길수도 있다. 더 나아가 네트워크로 로그를 전송할 수도 있다.) 특히 파일로 남길때는 일별, 특정 용량에 따라 로그를 분할하는 것도 가능하다.
+- 성능도 일반 System.out보다 좋다. (내부 버퍼링, 멀티 쓰레드 등등) 그래서 실무에서는 꼭 로그를 사용해야 한다.
+
+### 요청 매핑
+
+요청 매핑이란, 요청이 왔을때 어떤 컨트롤러가 호출되어야하는지 매핑하는 것을 의미한다.<br>
+단순히 URL을 가지고 매핑하는 것 뿐만 아니라, 여러가지 요소들을 가지고 조합해서 매핑할 수 있다.
+
+먼저 간단한게 컨트롤러를 하나 만들어 보자.
+
+`MappingController`: src > main > java > hello > springmvc > basic 패키지 내 requestmapping 패키지를 생성하자. 그리고 내부에 MappingController 클래스를 생성하자.
+
+```java
+package hello.springmvc.basic;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class requestmapping {
+
+    private Logger log = LoggerFactory.getLogger(getClass());
+
+    /**
+     * 기본 요청
+     * 둘다 허용 /hello-basic, /hello-basic/
+     * HTTP 메서드 모두 허용 GET, HEAD, POST, PUT, PATCH, DELETE
+     */
+    @RequestMapping(value = {"/hello-basic", "/hello-go"})
+    public String helloBasic() {
+        log.info("helloBasic");
+        return "ok";
+    }
+}
+```
+
+- **매핑정보**
+  - `@RestController`
+    - `@Controller`는 반환 값이 **String**이면 뷰 이름으로 인식된다. 그래서 뷰를 찾고 뷰가 랜더링 된다.
+    - `@RestController`는 반환 값으로 뷰를 찾는 것이 아니라, **HTTP메시지 바디에 바로 입력**한다. 따라서 실행 결과로 "ok" 메시지를 받을 수 있다.(이는 `@ResponseBody`와 관련이 있는데 뒹에서 더 자세히 설명한다.)
+  - `@RequestMapping("/hello-basic")`
+    - `/hello-basiic` URL호출이 오면 이 메서드가 실행되도록 매핑한다.
+    - 대부분의 속성을 `배열[]`로 제공하므로 다중 설정이 가능하다. `{"hello-basic", "/hello-go"}`
+
+**HTTP 메서드 매핑**
+
+- `@RequestMapping`에 `method` 속성으로 HTTP 메서드를 지정하지 않으면 HTTP 메서드와 무관하게 호출된다. (모두 허용 GET, HEAD, POST, PUT, PATCH, DELETE)
+  - 위 예제에서도 HTTP 메서드를 지정하지 않았기에 GET으로 요청해도, POST로 요청해도, DELETE로 요청해도 다 정상적으로 처리된다. Postman으로 테스트 해보자.
+
+GET method만게 다음과 같이 작성할 수 있다.
+
+```java
+@RequestMapping(value = "/mapping-get-v1", method = RequestMethod.GET)
+    public String mappingGetV1() {
+        log.info("mappingGetV1");
+        return "ok";
+    }
+```
+
+- POST로 요청하면 스프링 MVC는 HTTP 405상태코드를 반환된다.
+- (참고) 스프링은 `@RestController` 오류 모양을 JSON 스타일로 보내준다.
+
+HTTP 메서드 매핑을 다음과 같이 축약할 수도 있다.
+
+```java
+@GetMapping("/hello-basic")
+public String helloBasic() [
+  log.info("helloBasic")
+  return "ok";
+]
+```
+
+- `@GetMapping`, `@PostMapping`, `@PutMapping`, `@DeleteMapping`, `@PatchMapping`
+
+**PathVariable(경로 변수)사용**
+요청 URL 자체에 값이 들어가있는것 (경로 변수)
+
+```java
+@GetMapping("/mapping/{userId}")
+public String mappingPath(@PathVariable("userId") String data) {
+  log.info("mappingPath userId = {}", data);
+  return "ok";
+}
+```
+
+- 정상적으로 실행됨을 확인할 수 있다.
+- 최근 HTTP API는 다음과 같이 리소스 경로에 식별자를 넣는 스타일을 선호한다.
+  - ex) /mapping/userA, /users/1
+- @RequestMapping 은 URL 경로를 템플릿화 할 수 있는데, @PathVariable 을 사용하면 매칭되는 부분을 편리하게 조회할 수 있다.
+- @PathVariable 의 이름과 파라미터 이름이 같으면 생략할 수 있다.
+  - `@PathVariable("userId") String data` -> `@PathVariable String userId`
+
+**PathVariable 사용 - 다중 매핑**
+
+- 참고
+
+  ```java
+    @GetMapping("/mapping/users/{userId}/orders/{orderId}")
+    public String mappingPath(@PathVariable String userId, @PathVariable Long orderId) {
+        log.info("mapping-path userId={}, orderId={}", userId, orderId);
+        return "ok";
+    }
+  ```
+
+**특정 파라미터 조건 매핑**
+쿼리 파라미터를 조건에 매핑할 수 있다.(URL 정보 뿐만 아니라, 파라미터 정보까지 매핑되어야 함)
+
+```java
+@GetMapping(value = "/mapping-param", params = "mode=debug")
+public String mappingParam() {
+  log.info("mappingParam");
+  return "ok";
+}
+```
+
+- 잘 사용하지는 않음
+
+**특정 헤더 조건 매핑**
+파라미터 매핑과 비슷하지만, HTTP 헤더를 사용한다.
+
+```java
+@GetMapping(value = "/mapping-header", headers = "mode=debug")
+public String mappingHeader() {
+    log.info("mappingHeader");
+    return "ok";
+}
+```
+
+- 지정된 키와 값이 헤더 정보에 있으면 정상적으로 실행됨을 확인할 수 있다. (없다면 404 Not Found가 반환된다.)
+
+**미디어 타입 조건 매핑 - HTTP 요청 Content-Type, consume**
+HTTP요청의 Content-Type 헤더를 기반으로 미디어 타입으로 매핑한다.<br>
+(만약 Content-Type에 따른 조건(application/json인지 text/html인지 등)을 넣고싶은 경우, 이 경우는 위 특정 헤더 조건 매핑의 예시처럼 headers를 사용하면 안되고, consume을 사용해야 한다. 왜냐하면 스프링 MVC에서 내부적으로 이것을 가지고 처리하는 것들이 있기 때문이다.)
+
+```java
+@PostMapping(value = "/mapping-consume", consumes = "application/json")
+public String mappingConsumes() {
+    log.info("mappingConsumes");
+    return "ok";
+}
+```
+
+- **consume**: 컨트롤러가 소비하는 타입이 무엇이어야 하는지 지정(HTTP 요청의 Content-Type 헤더를 기반으로 미디어 타입으로 매핑한다.)
+- 유효하지 않은 경우를 확인해보자
+
+  - content-Type이 application/json이 아닌 경우, HTTP 415상태코드를 반환한다.
+
+- (참고) consumes예시
+  - consumes = "text/plain"
+  - consumes = {"text/plain", "application/\*"}
+  - consumes = MediaType.TEXT_PLAIN_VALUE
+
+**미디어 타입 조건 매핑 - HTTP요청 Accept, produce**
+
+```java
+@PostMapping(value = "/mapping-produce", produces = "text/html")
+public String mappingProduces() {
+    log.info("mappingProduces");
+    return "ok";
+}
+```
+
+- **produces**: 컨트롤러가 생산해내는 타입이 무엇이어야 하는지 지정(HTTP 요청의 Accept헤더를 기반으로 미디어 타입으로 매핑한다)
+- 유효하지 않은 경우를 확인해보자
+  - HTTP 406상태코드를 반환한다.
+- (참고) produces 예시
+
+  - produces = "text/plain"
+  - produces = {"text/plain", "application/\*"}
+  - produces = MediaType.TEXT_PLAIN_VALUE
+  - produces = "text/plain;charset=UTF-8"
+
+- **지금까지 요청 매핑에 대해서 알아보았다**
+  - 기본적인 URL 매핑
+  - HTTP method 매핑
+  - @PathVariable 경로 변수 사용
+  - 특정 파라미터 조건 매핑
+  - 특정 헤더 정보 매핑
+  - 미디어 타입 조건 매핑 - HTTP 요청 Content-Type, consumes
+  - 미디어 타입 조건 매핑 - HTTP 요청 Accept, produces
+
+### 요청 매핑 - API 예시
+
+회원을 관리하는 HTTP API를 만든다고 생각하고 매핑을 어떻게 하는지 알아보자<br>
+(실제 데이터가 넘어가는 부분은 생략하고, URL 매핑하는 것만 예제를 통해 확인해보자)
+
+**회원 관리 API** (회원 관리 API 스펙을 다음과 같이 정했다고 가정하자.)
+
+- 회원 목록 조회: GET ( `/users` )
+- 회원 등록: POST ( `/users` )
+- 회원 조회: GET ( `/users/{userId}` )
+- 회원 수정: PATCH ( `/users/{userId}` )
+- 회원 삭제: DELETE ( `/users/{userId}` )
+- (참고)
+  - 회원 (목록 조회 / 등록)
+  - 회원 (조회 / 수정 / 삭제)
+    - URL은 똑같이 제공하고, HTTP Method로 행위를 구분하였다.
+
+코드로 확인해보자
+`MappingClassController`: src > main > java > hello > springmvc > basic > requestmapping 패키지 내부에 MappingClassController 클래스를 생성하자. (생성 후 postman으로 실행해보자.)
