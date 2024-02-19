@@ -3905,3 +3905,320 @@ public String mappingProduces() {
 
 코드로 확인해보자
 `MappingClassController`: src > main > java > hello > springmvc > basic > requestmapping 패키지 내부에 MappingClassController 클래스를 생성하자. (생성 후 postman으로 실행해보자.)
+
+```java
+package hello.springmvc.basic.requestmapping;
+
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/mapping/users")
+public class MappingClassController {
+
+    @GetMapping
+    public String user() {
+        return "get users";
+    }
+
+    @PostMapping
+    public String addUser() {
+        return "post user";
+    }
+
+    @GetMapping("/{userId}")
+    public String findUser(@PathVariable String userId) {
+        return "get userId=" + userId;
+    }
+
+    @PatchMapping("/{userId}")
+    public String updateUser(@PathVariable String userId) {
+        return "update userId=" + userId;
+    }
+
+    @DeleteMapping("/{userId}")
+    public String deleteUser(@PathVariable String userId) {
+        return "delete userId=" + userId;
+    }
+}
+```
+
+매핑 방법을 이해했으니, 이제부터 HTTP 요청이 보내는 데이터들을 스필으 MVC로 어떻게 조회하는지 알아보자
+
+## 스프링 MVC - 기본 기능 2
+
+이제부터 HTTP요청이 보내는 데이터들을 스프링 MVC로 어떻게 조회하는지 알아보자
+
+### HTTP요청 - 기본, 헤더 조회
+
+이전에 서블릿에서 HTTP요청 메시지 헤더 정보등을 어떻게 조회하는지 알아보았다.(서블릿이 여러 기능을 제공해줬었다.)
+
+이번에는 스프링 MVC가 그것들을 더 편리하게 조회할 수 있는 여러가지 기능들을 제공한다. 따라서 그 중에서 먼저 기본, 헤더 조회에 대해서 알아볼 것이다.
+
+`RequestHeaderController`: src > main > java > hello > springmvc > basic > request 패키지를 생성하고, 내부에 RequestHeaderController 클래스를 생성하자. (생성 후 postman으로 실행해보자.)
+
+```java
+package hello.springmvc.basic.request;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpMethod;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Locale;
+
+@Slf4j
+@RestController
+public class RequestHeaderController {
+
+    @RequestMapping("/headers")
+    public String headers(HttpServletRequest request,
+                          HttpServletResponse response,
+                          HttpMethod httpMethod,
+                          Locale locale,
+                          @RequestHeader MultiValueMap<String, String> headerMap,
+                          @RequestHeader("host") String host,
+                          @CookieValue(value = "myCookie", required = false) String cookie) {
+
+        log.info("request={}", request);
+        log.info("response={}", response);
+        log.info("httpMethod={}", httpMethod);
+        log.info("locale={}", locale);
+        log.info("headerMap={}", headerMap);
+        log.info("header host={}", host);
+        log.info("myCookie={}", cookie);
+
+        return "ok";
+    }
+}
+```
+
+- 정상적으로 출력됨을 확인할 수 있다.
+- `HttpMethod`: HTTP메서드를 조회한다. (`org.springframework.http.HttpMethod`)
+- `locale`: (가장 우선 순위가 높은) Locale정보를 조회한다
+- `@RequestHeader MultiValueMap<String, String> headerMap`: 모든 HTTP헤더를 MultiValueMap 형식으로 조회한다.
+- `@RequestHeader("host") String host`
+  - 특정 HTTP 헤더를 조회한다.
+  - 속성
+    - 필수 값 여부: `required`
+    - 기본 값 속성: `defaultValue`
+- `@CookieValue(value = "myCookie", required = false) String cookie`
+  - 특정 쿠키를 조회한다.
+  - 속성
+    - 필수 값 여부: `required`
+    - 기본 값: `defaultValue`
+
+**참고**
+
+**MultiValueMap**
+
+- Map과 유사한데, 하나의 키에 여러 값을 받을 수 있다.
+- HTTP header, HTTP 쿼리 파라미터와 같이 하나의 키에 여러 값을 받을 때 사용한다.
+- 참고
+
+  ```java
+  MultiValueMap<String, String> map = new LinkedMultiValueMap();
+  map.add("keyA", "value1");
+  map.add("keyA", "value2");
+
+  // [value1, value2]
+  List<String> values = map.get("keyA");
+  ```
+
+**Slf4j**
+
+- 다음 코드를 자동으로 생성해서 로그를 선언해준다. 개발자는 편리하게 `log`라고 사용하면 된다.
+  - `private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(RequestHeaderController.class);`
+
+다음에는 본격적으로 요청 파라미터를 어떻게 받는지 알아보자
+
+### HTTP 요청 파라미터 - 쿼리 파라미터, HTML Form
+
+서블릿에서 학습했던 HTTP 요청 데이터를 조회하는 방법을 다시 떠올려보자.<br>
+그리고 서블릿으로 학습했던 내용을 스프링이 얼마나 깔끔하고 효율적으로 바꾸어주는지 알아보자
+
+HTTP요청 메시지를 통해 클라이언트에서 서버로 데이터를 전달하는 방법을 알아보자
+
+**클라이언트에서 서버로 요청 데이터를 전달할 때는 주로 다음 3가지 방법을 사용한다.**
+
+- **GET - 쿼리 파라미터**
+  - /url?username=hello&age=20
+  - 메시지 바디 없이, URL의 쿼리 파라미터에 데이터를 포함해서 전달
+  - 예) 검색, 필터, 페이지등에서 많이 사용하는 방식
+- **POST - HTML Form**
+  - content-type: application/x-www-form-urlencoded
+  - 메시지 바디에 쿼리 파라미터 형식으로 전달 username=hello&age=20
+  - 예) 회원가입, 상품 주문, HTML Form 사용
+- **HTTP message body**에 데이터를 직접 담아서 요청
+  - HTTP API에서 주로 사용, JSON, XML, TEXT
+  - 데이터 형식은 주로 JSON사용
+  - POST, PUT, PATCH를 주로 사용
+
+하나씩 알아보자
+
+**요청 파라미터 - 쿼리 파라미터, HTML Form**<br>
+HttpServletRequest의 request.getParameter()를 사용하면 다음 두가지 요청 파라미터를 조회할 수 있다.
+
+- **GET, 쿼리 파라미터 전송**
+  - 예시) `http://localhost:8080/request-param?username=hello&age=20`
+- **POST, HTML Form 전송**
+  - 예시)
+    <img src="./images/POST, HTML Form전송 예시.png"><br>
+  - GET 쿼리 파라미터 전송 방식이든, POST HTML Form 전송 방식이든 둘다 형식이 같으므로 구분없이 조회할 수 있다. 이것을 간단히 **요청 파라미터(Reqest parameter)조회**라 한다.
+
+지금부터 스프링으로 요청 파라미터를 조회하는 방법을 단계적으로 알아보자
+
+`RequestParamController`: src > main > java > hello > springmvc > basic > request 패키지 내부에 RequestParamController 클래스를 생성하자.
+
+```java
+package hello.springmvc.basic.request;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+import java.io.IOException;
+
+@Slf4j
+@Controller
+public class RequestParamController {
+
+    @RequestMapping("/request-param-v1")
+    public void requestParamV1 (HttpServletRequest request,
+                                HttpServletResponse response) throws IOException {
+        String username = request.getParameter("username");
+        int age = Integer.parseInt(request.getParameter("age"));
+
+        log.info("username = {}, age = {}", username, age);
+
+        response.getWriter().write("ok");
+    }
+}
+```
+
+- 정상적으로 실행됨을 확인할 수 있다.
+- `request.getParameter()`: 여기서는 단순히 HttpServletRequest가 제공하는 방식으로 요청 파라미터를 조회했다.
+
+**Post Form 페이지 생성**
+
+먼저 테스트용 HTML Form을 만들어야 한다<br>
+리소스는 `/resources/static`아래에 두면 스프링 부트가 자동으로 인식한다.<br>
+(`/resources/statice`은 외부에 공개된 경로이다.)
+
+```java
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<form action="/request-param-v1" method="post">
+    username: <input type="text" name="username">
+    age:      <input type="text" name="age">
+    <button type="submit">전송</button>
+</form>
+</body>
+</html>
+```
+
+- 정상적으로 실행된다.
+- (참고) Jar를 사용하면 `webapp`경로를 사용할 수 없다. 이제부터 정적 리소스도 클래스 경로에 함께 포함해야 한다.
+
+### HTTP 요청 파라미터 - @RequestParam
+
+스프링이 제공하는 `@RequestParam`을 사용하면 요청 파라미터를 매우 편리하게 사용할 수 있다.
+
+`requestParamV2`: 좀 전에 생성한 RequestParamController 클래스에 다음 코드를 추가하자.
+
+```java
+@RequestMapping("/request-param-v2")
+@ResponseBody
+public String requestParamV2(@RequestParam("username") String username,
+                             @RequestParam("age") int age) {
+    log.info("username = {}, age = {}", username, age);
+    return "ok";
+}
+```
+
+- `@RequestParam`: 파라미터 이름으로 바인딩.
+  - **@RequestParam의 `name(value)` 속성이 파라미터 이름으로 사용**
+    - @RequestParam("username") String memberName => request.getParameter("username")
+
+`requestParamV3`
+
+```java
+@ResponseBody
+@RequestMapping("/request-param-v3")
+public String requestParamV3(@RequestParam String username,
+                             @RequestParam int age) {
+    log.info("username = {}, age = {}", username, age);
+    return "ok";
+}
+```
+
+- HTTP 파라미터 이름이 변수 이름(변수명)과 같으면 `@RequestParam(name="xx")` 생략 가능
+
+`requestParamV4`: RequestParamController 클래스에 다음 코드를 적용해보자.
+
+```java
+@RequestMapping("/request-param-v4")
+@ResponseBody
+public String requestParamV4(String username, int age) {
+    log.info("username = {}, age = {}", username, age);
+    return "ok";
+}
+```
+
+- `String`, `int`, `Interget`등의 단순타입이면 `@RequestParam`도 생략 가능
+- (주의) `@RequestParam` 애노테이션을 생략하면 스프링 MVC는 내부에서 `required=false` 를 적용한다. `required` 옵션은 바로 다음에 설명한다.
+
+**파라미터 필수 여부 - requestParamRequired**
+
+`requestParamRequired`: RequestParamController 클래스에 다음 코드를 적용해보자.
+
+```java
+@RequestMapping("/request-param-required")
+@ResponseBody
+public String requestParamRequired(@RequestParam(required = true) String username,
+                                   @RequestParam(required = false) int age) {
+    log.info("username = {}, age = {}", username, age);
+    return "ok";
+}
+```
+
+- `@RequestParam.required`
+  - 파라미터 필수 여부
+  - 기본값으로 파라미터 필수(true)이다
+- `/request-param`으로 요청
+  - `username`이 없으므로 400 예외가 발생
+- **(주의) 파라미터 이름만 사용하는 경우**
+  - `/request-param?username=`: 파리미터 이름만 있고 값이 없는 경우, 빈문자로 통과(null이 아니라 빈 문자열임.)
+- **(주의) 기본현(primitive)에 null 입력**
+  - `/request-param`요청
+    - @RequestParam(required=false) int age
+      - `null`을 `int`에 입력하는 것은 불가능(500 예외 발생)
+      - 따라서 `null`을 받을 수 있는 `Interger`로 변경하거나 또는 다음에 나오는 `defaultValue`사용
+
+**기본 값 적용 - requestParamDefault**
+`requestParamDefault`: RequestParamController 클래스에 다음 코드를 적용해보자.
+
+```java
+@RequestMapping("/request-param-default")
+@ResponseBody
+public String requestParamDefault(
+        @RequestParam(required = true, defaultValue = "guest") String username,
+        @RequestParam(required = false, defaultValue = "-1") int age) {
+    log.info("username = {}, age = {}", username, age);
+    return "ok";
+}
+```
+
+- 파라미터에 값이 없는 경우 `defaultValue`를 사용하면 기본 값을 적용할 수 있다. 이미 기본 값이 있기 때문에 `required`는 의미가 없다.
+- `defaultValue`는 빈 문자의 경우에도 설정한 기본 값이 적용된다.(ex.`/request-param-default?username=`)
