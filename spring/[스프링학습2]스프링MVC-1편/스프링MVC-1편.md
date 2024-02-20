@@ -4222,3 +4222,240 @@ public String requestParamDefault(
 
 - 파라미터에 값이 없는 경우 `defaultValue`를 사용하면 기본 값을 적용할 수 있다. 이미 기본 값이 있기 때문에 `required`는 의미가 없다.
 - `defaultValue`는 빈 문자의 경우에도 설정한 기본 값이 적용된다.(ex.`/request-param-default?username=`)
+
+**파라미터를 Map으로 조회하기 - requestParamMap**
+`requestParamMap`: RequestParamController 클래스에 다음 코드를 적용해보자.
+
+```java
+@RequestMapping("/request-param-map")
+@ResponseBody
+public String requestParamMap(@RequestParam Map<String, Object> paramMap) {
+    log.info("username = {}, age= {}", paramMap.get("username"), paramMap.get("age"));
+    return "ok";
+}
+```
+
+- 파라미터를 Map, MultiValueMap으로 조회할 수 있다.
+  - `@RequestParam Map`
+    - `Map(ket=value)`
+  - `@RequestParam MultiValueMap`
+    - `MultiValueMap(key=[value1, value2, ...]` ex) (key=userIds, value=[id1, id2])
+  - 파라미터의 값이 1개가 확실하다면 `Map`을 사용해도 되지만, 그렇지 않다면 `MultiValueMap`을 사용하자
+
+### HTTP 요청 파라미터 - @ModelAttribute
+
+실제 개발을 하면 요청 파라미터를 받아서 필요한 객체를 만들고 그 객체에 값을 넣어주어야 한다.<br>
+보통 다음과 같이 코드를 작성할 것이다.
+
+```java
+@RequestParam String username;
+@RequestParam String int age;
+
+HelloData data = new HelloData();
+data.setUsername(username);
+data.setAge(age);
+```
+
+**스프링은 이 과정을 완전히 자동화해주는 @ModelAttrbute 기능을 제공한다.**
+코드로 확인해보자. (먼저 요청 파라미터를 바인딩 받을 객체를 만들고, @ModelAttribute를 적용해보자.)
+
+`HelloData`: src > main > java > hello > springmvc > basic 패키지 내부에 HelloData 클래스를 생성하자.
+
+```java
+package hello.springmvc.basic;
+
+import lombok.Data;
+
+@Data
+public class HelloData {
+    private String username;
+    private int age;
+}
+```
+
+- (롬복)`@Data` = `@Getter`, `@Setter`, `@ToString`, `@EqualsAndHashCode`, `@RequiredArgsConstructor`를 자동으로 적용해준다.
+
+`modelAttributeV1`: RequestParamController 클래스 내부에 아래 코드를 적용해보자.
+
+```java
+@RequestMapping("/model-attribute-v1")
+@ResponseBody
+public String modelAttributeV1(@ModelAttribute HelloData helloData) {
+    log.info("username = {}, age = {}",
+            helloData.getUsername(), helloData.getAge());
+
+    log.info("helloData= {}", helloData);
+    return "ok";
+}
+```
+
+- 마치 마법처럼 `HelloData`객체가 생성되고, 요청 파라미터의 값도 모두 들어가 있다.
+- **스프링MVC는 @ModelAttribute가 있으면 다음을 실행한다.**
+  - `HelloData`객체를 생성한다.
+  - 요청 파라미터의 이름으로 `HelloData`객체의 프로퍼티를 찾는다. 그리고 해당 프로퍼티의 `setter`를 호출해서 파라미터의 값을 입력(바인딩) 한다.
+    - 예) 파라미터이름이 username 이면 setUsername()메서드를 찾아서 호출하면서 값을 입력한다.
+    - (참고) **프로퍼티**
+      - 객체에 `getUsername()`, `setUsername()`메서드가 있으면, 이 객체는 `username`이라는 이름의 프로퍼티를 가지고 있다고 말한다. username프로퍼티의 값을 변경하면 `setUsername()`이 호출되고, 조회하면 `getUsername()`이 호출된다.
+- (참고) 바인딩 오류
+  - `age=abc`처럼 숫자가 들어가야 할 곳에 문자를 넣으면 `BindException`이 발생한다.<br>이런 바인딩 오류를 처리하는 방법은 검증 부분에서 다룬다.
+
+`modelAttributeV2`: RequestParamController 클래스 내부에 아래 코드를 적용해보자.
+
+```java
+@RequestMapping("/model-attribute-v2")
+@ResponseBody
+public String modelAttributeV2(HelloData helloData) {
+    log.info("username = {}, age = {}", helloData.getUsername(), helloData.getAge());
+    log.info("helloData = {}", helloData);
+    return "ok";
+}
+```
+
+- `@ModelAttribute`는 생략할 수 있다. 그런데 `@RequestParam`도 생략할 수 있으니 혼란이 발생할 수 있다.
+- **스프링은 `@ModelAttribute` 생략시 다음과 같은 규칙을 적용한다**
+  - `String`, `int`, `Interger`같은 단순 타입인 경우 = `@requestParam`적용
+  - 나머지 = `@ModelAttribute`적용 (argument resolver로 지정해둔 타입 외)
+    - (참고) argument resolver라는 것으로 지정해둔 타입(ex. HttpServletResponse, ...)은 @ModelAttribute가 적용되지 않는다. argument resolver는 뒤에서 학습한다.
+
+지금까지는 클라이언트에서 서버로 요청 데이터를 전달할때 사용하는 아래 3가지 방법 중, 요청 파라미터 (1, 2)를 조회하는 것에 대해서 알아보았다.
+
+1. GET - 쿼리 파라미터
+2. POST - HTML Form
+3. HTTP message body에 데이터를 직접 담아서 요청
+
+다음부터는 3 HTTP message body에 데이터가 직접 넘어오는 경우에 대해서 알아보자.
+
+### HTTP 요청 메시지 - 단순 텍스트
+
+이전에 서블릿에서 학습한 내용을 떠올려보자
+
+**HTTP message body에 데이터를 직접 담아서 요청하는 경우**
+
+- HTTP API에서 주로 사용 (JSON, XML, TEXT등을 담을 수 있다.)
+- 데이터 형식은 주로 JSON사용
+- POST, PUT, PATCH
+
+요청 파라미터와 다르게, HTTP메시지 바디를 통해 데이터가 직접 넘어오는 경우는 `@RequestParam`, `@ModelAttribute`를 사용할 수 없다. (물론 HTML Form 형식으로 전달되는 경우는 요청 파라미터로 인정된다.)<br>
+
+먼저 가장 단순한 텍스트 메시지를 HTTP 메시지 바디에 담아서 전송하고, 읽어보자.<br>
+**(HTTP 메시지 바디의 데이터를 `InputStream` 을 사용해서 직접 읽을 수 있다.)**
+
+`RequestBodyStringController`: src > main > java > hello > springmvc > basic > request 패키지 내부에 RequestBodyStringController 클래스를 생성하자. (생성 후 Postman으로 실행해보자.)
+
+```java
+package hello.springmvc.basic.request;
+
+import jakarta.servlet.ServletInputStream;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Controller;
+import org.springframework.util.StreamUtils;
+import org.springframework.web.bind.annotation.PostMapping;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+
+@Slf4j
+@Controller
+public class RequestBodyStringController {
+
+    @PostMapping("/request-body-string-v1")
+    public void requestBodyString(HttpServletRequest request,
+                                  HttpServletResponse response) throws IOException {
+        ServletInputStream inputStream = request.getInputStream();
+        String messageBody = StreamUtils.copyToString(inputStream, StandardCharsets.UTF_8);
+
+        log.info("messageBody = {}", messageBody);
+        response.getWriter().write("ok");
+    }
+}
+```
+
+- (참고) 바이트 코드를 문자로 받을 때는 어떤 인코딩으로 해서 문자로 바꿀것인지를 항상 지정해줘야 한다.(지정하지 않으면 디폴트를 사용한다. (OS에 기본 설정된 것 또는 자바 실행시 기본으로 설정된 것 등))
+
+좀 더 개선해보자
+
+`RequestBodyStringController` - requestBodyStringV2: 클래스 내 아래 코드를 추가해보자. (추가 후 Postman을 사용해서 테스트 해보자.)
+
+```java
+@PostMapping("/request-body-string-v2")
+public void requestBodyStringV2(InputStream inputStream,
+                                Writer responseWriter) throws IOException {
+    String messageBody = StreamUtils.copyToString((inputStream), StandardCharsets.UTF_8);
+
+    log.info("messageBody = {}", messageBody);
+
+    responseWriter.write("ok");
+}
+```
+
+- **스프링 MVC는 다음 파라미터를 지원한다**
+  - InputStream(Reader): HTTP요청 메시지 바디의 내용을 직접 조회
+  - OutputStream(Writer): HTTP응답 메시지에 바디에 직접 결과 출력
+
+이렇게 Stream으로 받고 하는것도 그닥 효율적이진 않아보인다. 좀 더 개선해보자
+
+`RequestBodyStringController - requestBodyStringV3`: 클래스 내 아래 코드를 추가해보자. (추가 후 Postman을 사용해서 테스트 해보자.)
+
+```java
+@PostMapping("/request-body-string-v3")
+public HttpEntity<String> requestBodyStringV3(HttpEntity<String> httpEntity) {
+    String messageBody = httpEntity.getBody();
+
+    log.info("messageBody = {}", messageBody);
+
+    return new HttpEntity<>("ok");
+}
+```
+
+- **스프링 MVC는 다음 파라미터를 지원한다,**
+  - **HttpEntity**: HTTP header, body 정보를 편리하게 조회
+    - 메시지 바디 정보를 직접 조회
+    - 요청 파라미터를 조회하는 기능과는 전혀 관계 없음 `@RequestParam(x)`, `@ModelAttribute(x)`
+  - **HttpEntity**는 응답에도 사용 가능
+    - 메시지 바디 정보 직접 반환
+    - 헤더 정보도 포함 가능
+    - HttpEntity를 응답하게 되면, view를 조회하지 않는다.
+  - **HttpEntity**를 상속받은 다음 객체들도 같은 기능을 제공한다.
+    - **RequestEntity**
+      - HttpMethod, url정보가 추가, 요청에서 사용
+    - **ResponseEntity**
+      - HTTP 상태 코드 설정 가능, 응답에서 사용
+      - `return new ResponseEntity<String>("Hello World", responseHeaders, HttpStatus.CREATED)`
+    - 참고
+      ```java
+        @PostMapping("request-body-string-v3-v1")
+        public HttpEntity<String> requestBodyStringV3V1(RequestEntity<String> httpEntity) {
+        String messageBody = httpEntity.getBody();
+        log.info("messageBody = {}", messageBody);
+        return new ResponseEntity<>("ok", HttpStatus.CREATED);
+      }
+      ```
+
+`RequestBodyStringController - requestBodyStringV4`: 클래스 내 아래 코드를 추가해보자. (추가 후 Postman을 사용해서 테스트 해보자.)
+
+```java
+@PostMapping("/request-body-string-v4")
+@ResponseBody
+public String requestBodyStringV4(@RequestBody String messageBody) {
+    log.info("messageBody = {}", messageBody);
+    return "ok";
+}
+```
+
+- `@RequestBody`
+  - `@RequestBody`를 사용하면 HTTP메시지 바디 정보를 편리하게 조회할 수 있다.
+  - 참고로 헤더 정보가 필요하다면 `HttpEntity`를 사용하거나 `@RequestHeader`를 사용하면 된다.
+  - 이렇게 HTTP 메시지 바디를 직접 조회하는 기능은 요청 파라미터를 조회하는 `@RequestParam`, `@ModelAttritube`와는 전혀 관계가 없다.<br>(HttpMessageConverter라는 매커니즘이 동작한다.)
+  - `요청 파라미터 조회 vs HTTP 메시지 바디 조회`
+    - 요청 파라미터를 조회하는 기능: `@RequestParam`, `@ModelAttribute`
+    - HTTP메시지 바디를 직접 조회하는 기능: `@RequestBody`
+  - `@ResponseBody`
+    - `@ResponseBody`를 사용하면 응답 결과를 HTTP 메시지 바디에 직접 담아서 전달할 수 있다
+    - 물론 이 경우에도 view를 사용하지 않는다.
+
+> [!TIP]
+> 참고
+>
+> - 스프링 MVC내부에서 HTTP메시지 바디를 읽어서 문자나 객체로 변환해서 전달해주는데, 이때 HTTP메시지 컨버터(HttpMessageConverter)라는 기능을 사용한다. 이것은 뒤에 HTTP 메시지 컨버터에서 자세히 설명한다.
