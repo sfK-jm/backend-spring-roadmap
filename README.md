@@ -12,7 +12,7 @@
 
 ## 스프링 MVC - 1편
 
-[설명](./spring/[스프링학습2]스프링MVC-1편/스프링MVC-1편.md)
+[설명](./spring/[스프링학습2]스프링MVC-1편/스프링MVC-1편.md)
 
 - [소스코드 1 (servlet)](./spring/[스프링학습2]스프링MVC-1편/소스코드%20모음/servlet/)
 - [소스코드 2 (spring mvc)](./spring/[스프링학습2]스프링MVC-1편/소스코드%20모음/springmvc/)
