@@ -4459,3 +4459,244 @@ public String requestBodyStringV4(@RequestBody String messageBody) {
 > 참고
 >
 > - 스프링 MVC내부에서 HTTP메시지 바디를 읽어서 문자나 객체로 변환해서 전달해주는데, 이때 HTTP메시지 컨버터(HttpMessageConverter)라는 기능을 사용한다. 이것은 뒤에 HTTP 메시지 컨버터에서 자세히 설명한다.
+
+### HTTP 요청 메시지 - JSON
+
+이번에는 HTTP API에서 주로 사용하는 JSON데이터 형식을 조회해보자
+
+기본 서블릿에서 사용했던 방식과 비슷하게 시작해보자
+
+`RequestBodyJsonController`: src > main > java > hello > springmvc > basic > request 패키지 아래 RequestBodyJsonController 클래스를 생성하자. (생성 후 Postman을 사용해서 테스트 해보자.)
+
+```java
+
+private ObjectMapper objectMapper = new ObjectMapper();
+
+@PostMapping("/request-body-json-v1")
+public void requestBodyJsonV1(HttpServletRequest request,
+                              HttpServletResponse response) throws IOException {
+
+    ServletInputStream inputStream = request.getInputStream();
+    String messageBody = StreamUtils.copyToString(inputStream, StandardCharsets.UTF_8);
+
+    log.info("messageBody = {}", messageBody);
+    HelloData helloData = objectMapper.readValue(messageBody, HelloData.class);
+    log.info("username = {}, age = {}", helloData.getUsername(), helloData.getAge());
+
+    response.getWriter().write("ok");
+}
+```
+
+- HttpServletRequest를 사용해서 직접 HTTP메시지 바디에서 데이터를 읽고와서, 문자로 변환한다
+- 문자로 된 JSON 데이터를 Jackson 라이브러리인 `objectMapper`를 사용해서 자바 객체로 반환한다,
+
+`RequestBodyJsonController - requestBodyJsonV2 (@RequestBody 문자 변환)`: RequestBodyJsonController 클래스에 아래 코드를 추가해보자.
+
+```java
+@PostMapping("/request-body-json-v2")
+@ResponseBody
+public String requestBodyJsonV2(@RequestBody String messageBody)  throws IOException {
+    log.info("messageBody = {}", messageBody);
+    HelloData helloData = objectMapper.readValue(messageBody, HelloData.class);
+    log.info("username = {}, age = {}", helloData.getUsername(), helloData.getAge());
+
+    return "ok";
+}
+```
+
+- 이전에 했던 `@RequestBody`를 사용해서 HTTP메시지에서 데이터를 꺼내고 messageBody에 저장한다.
+- 문자로 된 JSON데이터인 messageBody를 `objesctMapper`를 통해서 자바 객체로 변환한다.
+
+**문자로 변환하고 다시 json으로 변환하는 과정이 불편하다. @ModelAttribute처럼 한번에 객체로 변환할 수는 없을까?**
+
+`RequestBodyJsonController - requestBodyJsonV3 (@RequestBody 객체 변환)`: RequestBodyJsonController 클래스 내 아래 코드를 추가해보자.
+
+```java
+@PostMapping("/request-body-json-v3")
+@ResponseBody
+public String requestBodyJsonV3(@RequestBody HelloData helloData) {
+    log.info("messageBody = {}", helloData);
+    log.info("username = {}, age = {}", helloData.getUsername(), helloData.getAge());
+    return "ok";
+}
+```
+
+- `@RequestBody 객체 파라미터`(ex. `@RequestBody HelloData data`)
+  - `@RequestBody`에 직접 만든 객체를 지정할 수 있다.
+  - `HttpEntity`, `@RequestBody`**를 사용하면 HTTP메시지 컨버터가 HTTTP메지지 바디의 내용을 우리가 원하는 문자나 객체 등으로 변환해준다.** HTTP메시지 컨버터는 문자 뿐만 아니라 JSON도 객체로 변환해주는데, 방금 V2에서 했던 작업을 대신 처리해준다. 자세한 내용은 뒤에 HTTP 메시지 컨버터에서 다룬다.
+- **(참고) @RequestBody는 생략 불가능**
+  - `@ModelAttribute`에서는 스프링은 `@ModelAttribute`, `@RequestParam`과 같은 해당 에노테이션을 생략시 다음과 규칙을 적용한다,
+    - `String`, `int`, `Interger`같은 단순 타입 = `@RequestParam`
+    - 나머지 = `@ModelAttribute`(argument resolver로 지정해둔 타입 외)
+  - **따라서 이 경우 HelloData에 RequestBody를 생략하면 @ModelAttribute가 적용되어버린다.**(HelloData data -> @ModelAttribute HelloData data)
+  - 그러므로 생략하면 HTTP메시지 바디가 아니라 요청 파라미터를 처리하게 된다.(위 코드에서 @RequestBody를 제거하고 다시 동일하게 실행해보면, ok메시지는 정상적으로 보이나, HelloData의 username에는 null, age에는 0이 들어간다. (객체만 생성하고 값이 아무것도 세팅되지 않은 것.))
+  - (주의) HTTP 요청시에 content-type이 application/json인지 꼭! 확인해야 한다. 그래야 JSON을 처리할 수 있는 HTTP 메시지 컨버터가 실행된다.
+
+물론 앞서 배운 것과 같이 HttpEntity를 사용해도 된다.
+
+`RequestBodyJsonController - requestBodyJsonV4`: RequestBodyJsonController 클래스 내 아래 코드를 추가해보자.
+
+```java
+@PostMapping("/request-body-json-v4")
+@ResponseBody
+public String requestBodyJsonV4(HttpEntity<HelloData> httpEntity) {
+    HelloData data = httpEntity.getBody();
+    log.info("messageBody = {}", data);
+    log.info("username = {}, age = {}", data.getUsername(), data.getAge());
+    return "ok";
+}
+```
+
+- 응답의 경우에도 @ResponseBody 를 사용하면 해당 객체를 HTTP 메시지 바디에 직접 넣어줄 수 있다.
+
+`RequestBodyJsonController - requestBodyJsonV5`: RequestBodyJsonController 클래스 내 아래 코드를 추가해보자.
+
+```java
+@PostMapping("/request-body-json-v5")
+@ResponseBody
+public HelloData requestBodyJsonV5(@RequestBody HelloData data) {
+    log.info("messageBody = {}", data);
+    log.info("username = {}, age = {}", data.getUsername(), data.getAge());
+    return data;
+}
+```
+
+- HttpMessageConverter가 들어올 때 (요청)도 적용될 수 있지만, 나갈 때(응답)도 적용될 수 있다.
+- `@ResponseBody`
+
+  - 응답의 경우에도 `@ResponseBody`를 사용하면 해당 객체를 HTTP 메시지 바디에 직접 넣어줄 수 있다.
+  - 물론 이 경우에도 `HttpEntity`를 사용해도 된다.
+
+    ```java
+    @PostMapping("/request-body-json-v6")
+    @ResponseBody
+    public HttpEntity<HelloData> requestBodyJsonV6(@RequestBody HelloData data) {
+        log.info("messageBody = {}", data);
+        log.info("username = {}, age = {}", data.getUsername(), data.getAge());
+        return new ResponseEntity<>(data, HttpStatus.OK);
+    }
+    ```
+
+    - (참고) @Responsebody 생략 가능
+
+> [!NOTE]
+>
+> - `@RequestBody`요청
+>   - JSON요청 -> HTTP메시지 컨버터 -> 객체
+> - `@ResponseBody`응답
+>   - 객체 -> HTTP메시지 컨버터 -> JSON응답
+
+## 스프링 MVC - 기본 기능 3
+
+### 응답 - 정적 리소스, 뷰 템플릿
+
+응답 데이터는 이미 앞에서 일부 다룬 내용들이지만, 응답 부분에 초점을 맞추어서 정리해보자
+
+스프링(서버)에서 응답 데이터를 만드는 방법은 크게 3가지이다.
+
+- 정적 리소스
+  - 예) 웹 브라우저에 정적인 HTML, css, js를 제공할때는, 정적 리소스를 사용한다. (파일을 그대로 그냥 전달한다.)
+- 뷰 템플릿 사용
+  - 예) 서버가 웹 브라우저에 동적인 HTML을 제공할 때는 뷰 템플릿을 사용한다,
+- HTTP 메시지 사용
+  - HTTP API를 제공하는 경우에는 HTML이 아니라 데이터를 전달해야 하므로, HTTP 메시지 바디에 JSON 같은 형식으로 데이터를 실어 보낸다.
+
+먼저 정적 리소스에 대해서 알아보자
+
+**정적 리소스**
+
+- 정적 리소스는 파일을 변경 없이 그대로 서비스하는 것이다
+- 스프링 부트는 클래스패스의 다음 디렉토리에 있는 정적 리소스를 제공한다.
+  - `/static` , `/public` , `/resources` , `/META-INF/resources`
+- `src/main/resources`는 리소스를 보관하는 곳이고, 또 클래스패스의 시작 경로이다.<br>따라서 해당 디렉토리 하위에 위 리소스를 넣어두면 스프링 부트가 정적 리소스로 서비스를 제공한다.
+
+**정적 리소스 경로**
+
+- `src/main/resources/static`
+  - 따라서, 다음 경로(`src/main/resources/static/basic/hello-form.html`)에 파일이 있다면, 웹 브라우저에서 다음과 같이 실행하면 된다. (`http://localhost:8080/basic/hello-form.html`)
+
+이번에 뷰 템플릿에 대해서 알아보자
+
+**뷰 템플릿**
+
+뷰 템플릿을 거쳐서 HTML이 생성되고, 뷰가 응답을 만들어서 전달한다.<br>
+일반적으로 HTML을 동적으로 생성하는 용도로 사용하지만, 다른 것들도 가능하다. 뷰 템플릿이 만들 수 있는 것이라면 뭐든 가능하다.
+
+스프링 부트는 기본 뷰 템플릿 경로를 제공한다.
+
+**뷰 템플릿 경로**
+
+- `src/main/resources/templates`
+
+**뷰 템플릿 생성**
+
+src > main > resources > templates 디렉토리 내, response 디렉토리를 생성하고, 내부에 hello.html을 생성하자. (`src/main/resources/templates/response/hello.html`)
+
+```html
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Title</title>
+  </head>
+  <body>
+    <p th:text="${data}">empty</p>
+  </body>
+</html>
+```
+
+`ResponseViewController - 뷰 템플릿을 호출하는 컨트롤러`: src > main > java > hello > springmvc > basic > response 패키지를 생성하고, 내부에 ResponseViewController 클래스를 생성하자.
+
+```java
+package hello.springmvc.basic.response;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.servlet.ModelAndView;
+
+@Controller
+public class ResponseViewController {
+
+    @RequestMapping("/response-view-v1")
+    public ModelAndView responseViewV1() {
+        ModelAndView mav = new ModelAndView("response/hello");
+        mav.addObject("data", "hello");
+        return mav;
+    }
+
+    @RequestMapping("/response-view-v2")
+    public String responseView2(Model model) {
+        model.addAttribute("data", "hello");
+        return "response/hello";
+    }
+
+    @RequestMapping("/response/hello")
+    public void responseViewV3(Model model) {
+        model.addAttribute("data", "hello");
+    }
+}
+```
+
+- 3개 메서드 모두 정상적으로 작동함
+- **String을 반환하는 경우 - View or HTTP 메시지**
+  - `@ResponseBody`가 없으면 `response/hello`로 뷰 리졸버가 실행되어서 뷰를 찾고, 렌더링 한다.
+- **void를 반환하는 경우**
+  - `@Controller`를 사용하고, `HttpServletResponse`, `OutputStream(Writer)` 같은 HTTP메시지 바디를 처리하는 파라미터가 없으면, 요청 URL을 참고해서 논리 뷰 이름으로 사용한다.
+    - 요청 URL: `/response/hello`
+    - 실행: `templates/response/hello.html`
+  - **참고로 이 방식은 명시성이 너무 떨어지고 이렇게 딱 맞는 경우도 많이 없어서, 권장하지는 않음**
+
+> [!TIP]
+>
+> - **HTTP 메시지**
+>   - @ResponseBody, HttpEntity를 사용하면, 뷰 템플릿을 사용하는 것이 아니라, HTTP메시지 바디에 직접 응답 데이터를 출력할 수 있다.
+> - **Thymeleaf 스프링 부트 설정**
+>   - (build.gradle) 다음 라이브러리를 추가하면
+>     ` implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'`
+>   - 스프링 부트가 자동으로 ThymeleafViewResolver 와 필요한 스프링 빈들을 등록한다. 그리고 다음 설정도 사용한다. 이 설정은 기본 값이기 때문에 변경이 필요할 때만 설정하면 된다. (application.properties)
+>     `spring.thymeleaf.prefix=classpath:/templates/` > `spring.thymeleaf.suffix=.html`
+
+이번 내용에서는 정적 리소스와 뷰 템플릿 사용에 대해서 알아보았다. 다음에는 HTTP 메시지를 응답으로 사용하는 것에 대해서 알아보자
+
+### HTTP 응답 - HTTP API, 메시지 바디에 직접 입력
