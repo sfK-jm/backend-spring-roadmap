@@ -4700,3 +4700,271 @@ public class ResponseViewController {
 이번 내용에서는 정적 리소스와 뷰 템플릿 사용에 대해서 알아보았다. 다음에는 HTTP 메시지를 응답으로 사용하는 것에 대해서 알아보자
 
 ### HTTP 응답 - HTTP API, 메시지 바디에 직접 입력
+
+HTTP API를 제공하는 경우에는 HTML이 아니라 데이터를 전달해야 하므로, HTTP메시지 바디에 JSON같은 형식으로 데이터를 실어 보낸다.
+
+지금까지 HTTP요청에서 응답까지 대부분 다루었으므로 이번에는 내용을 정리해보자.
+
+**참고**
+
+- HTML이나 뷰 템플릿을 사용해도 그것도 결과적으로는 HTTP 응답 메시지 바디에 HTML 데이터가 담겨서 전달된다. 여기서 설명하는 내용은 정적 리소스나 뷰 템플릿을 거치지 않고, 직접 HTTP 응답 메시지를 전달하는 경우를 말한다.
+
+코드로 확인해보자
+
+`ResponseBodyController`: src > main > java > hello > springmvc > basic > response 패키지 내부에 ResponseBodyController 클래스를 생성하자.
+
+```java
+package hello.springmvc.basic.response;
+
+import hello.springmvc.basic.HelloData;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.ResponseStatus;
+
+import java.io.IOException;
+
+@Slf4j
+@Controller
+public class ResponseBodyController {
+
+    @GetMapping("/response-body-string-v1")
+    public void responseBodyV1(HttpServletResponse response) throws IOException {
+        response.getWriter().write("ok");
+    }
+
+    @GetMapping("/response-body-string-v2")
+    public ResponseEntity<String> responseBodyV2() {
+        return new ResponseEntity<>("ok", HttpStatus.OK);
+    }
+
+    @GetMapping("/response-body-string-v3")
+    @ResponseBody
+    public String responseBodyV3() {
+        return "ok";
+    }
+
+    @GetMapping("/response-body-json-v1")
+    public ResponseEntity<HelloData> responseBodyJsonV1() {
+        HelloData helloData = new HelloData();
+        helloData.setUsername("userA");
+        helloData.setAge(20);
+
+        return new ResponseEntity<>(helloData, HttpStatus.OK);
+    }
+
+    @GetMapping("/response-body-json-v2")
+    @ResponseBody
+    @ResponseStatus(HttpStatus.OK)
+    public HelloData responseBodyJsonV2() {
+        HelloData helloData = new HelloData();
+        helloData.setUsername("userA");
+        helloData.setAge(20);
+        return helloData;
+    }
+}
+```
+
+- **responseBodyV1 메서드**
+  - 서블릿을 직접 다룰 때 처럼 HttpServletResponse 객체를 통해서 HTTP 메시지 바디에 직접 `ok`응답 메시지를 전달한다.(`response.getWriter().write("ok")`)
+- **responseBodyV2 메서드**
+  - `ResponseEntity`엔티티는 `HttpEntity`를 상속 받았는데, HttpEntity는 HTTP메시지의 헤더, 바디 정보를 가지고 있다. `ResponseEntity`는 여기에 더해서 HTTP응답 코드를 설정할 수 있다.
+- **responseBodyV3 메서드**
+  - `@ResponseBody` 를 사용하면 view를 사용하지 않고, HTTP 메시지 컨버터를 통해서 HTTP 메시지를 직접 입력할 수 있다. `ResponseEntity` 도 동일한 방식으로 동작한다.
+- **responseBodyJsonV1 메서드**
+  - `ResponseEntity` 를 반환한다. HTTP 메시지 컨버터를 통해서 JSON 형식으로 변환되어서 반환된다.
+- **responseBodyJsonV2 메서드**
+  - `ResponseEntity`는 HTTP 응답 코드를 설정할 수 있는데, @ResponseBody 를 사용하면 이런 것을 설정하기 까다롭다.
+    - 그래서 @ResponseStatus(HttpStatus.OK) 애노테이션을 사용하면 응답 코드도 설정할 수 있다.
+      - 물론 애노테이션이기 때문에 응답 코드를 동적으로 변경할 수는 없다. (어떤 경우에는 200, 어떤 경우에는 201, ...) 프로그램 조건에 따라서 동적으로 변경하려면 ResponseEntity 를 사용하면 된다.
+
+**@RestController**
+
+- `@Controller` 대신에 `@RestController` 애노테이션을 사용하면, 해당 컨트롤러에 모두 `@ResponseBody`가 적용되는 효과가 있다. 따라서 뷰 템플릿을 사용하는 것이 아니라, HTTP메시지 바디에 직접 데이터를 입력하낟. 이를 그대로 Rest API(HTTP API)를 만들 대 사용하는 컨트롤러이다.
+- 참고로 `@ResponseBody`는 클래스 레벨에 두면 전체 메서드에 적용되는데, `@RestController`에노테이션 안에 `@ResponseBody`가 적용되어 있다.
+
+### HTTP 메시지 컨버터
+
+뷰 템플릿으로 HTML을 생성해서 응답하는 것이 아니라, HTTP API처럼 JSON 데이터를 HTTP 메시지 바디에서 직접 읽거나 쓰는 경우 HTTP 메시지 컨버터를 사용하면 편리하다. (서블릿을 학습할 때 stream으로 읽어서 변환하고 했던 것을 기억할 것이다.)
+
+**스프링 MVC는 다음의 경우에 HTTP 메시지 컨버터를 적용한다.**
+
+- HTTP 요청: `@RequestBody` , `HttpEntity 또는 이를 상속받은 RequestEntity`
+- HTTP 응답: `@ResponseBody` , `HttpEntity 또는 이를 상속받은 ResponseEntity`
+
+**스프링 부트 기본 메시지 컨버터**
+
+- ByteArrayHttpMessageConverter
+- StringHttpMessageConverter
+- MappingJackson2HttpMessageConverter
+
+### 요청 매핑 핸들러 어뎁터 구조
+
+HTTP메시지 컨버터는 스프링 MVC의 어디쯤에서 사용되는 것일까?
+
+Spring MVC 구조
+<img src="./images/SpringMVC구조.png"><br>
+
+**모든 비밀은 애노테이션 기반의 컨트롤러, 그니까 `@RequestMapping`을 처리하는 어댑터인 `RequestMappingHandlerAdapter`(요청 매핑 핸들러 어댑터)에 있다.**
+
+<img src="./images/RequestMappingHandlerAdapter 동작 방식.png"><br>
+
+- (핸들러 매핑을 통해 핸들러를 조회하고, 그것을 처리할 수 있는 어댑터를 찾는 과정 등은 설명에서 생략한다.)
+- DispatcherServlet이 RequestMapping 핸들러 어댑터를 호출한다.
+- 그러면 핸들러 어댑터는 핸들러(컨트롤러)를 호출해 줘야 한다. 그런데 해당 컨트롤러가 호출이 되려면, 해당 컨트롤러에서 파라미터로 받기위해 선언했을 수도 있는 (HttpServletRequest, HttpServletResponse, InputStream, HttpEntity, @RequestParam, @RequestBody, ...) 등등의 파라미터 정보가 있다면, 이와 관련한 적절한 값들도 만들어져서 주입되어야 한다.
+
+- `ArgumentResolver`
+- 생각해보면, 애노테이션 기반의 컨트롤러는 매우 다양한 파라미터를 사용할 수 있었다. `HttpServletRequest` , `Model` 은 물론이고, `@RequestParam` , `@ModelAttribute` 같은 애노테이션 그리고 `@RequestBody` , `HttpEntity` 같은 HTTP 메시지를 처리하는 부분까지 매우 큰 유연함을 보여주었다.
+- 이렇게 파라미터를 유연하게 처리할 수 있는 이유가 바로 **ArgumentResolver** 덕분이다.
+  - 애노테이션 기반 컨트롤러를 처리하는 `RequestMappingHandlerAdapter` 는 바로 이 `ArgumentResolver` 를 호출해서 컨트롤러(핸들러)가 필요로 하는 다양한 파라미터의 값(객체)을 생성한다. 그리고 이렇게 파리미터의 값이 모두 준비되면 컨트롤러를 호출하면서 값을 넘겨준다
+- 정확히는 HandlerMethodArgumentResolver 인데 줄여서 ArgumentResolver 라고 부른다.
+- **동작 방식**
+  - ArgumentResolver 의 supportsParameter() 를 호출해서 해당 파라미터를 지원하는지 체크하고, 지원하면 resolveArgument() 를 호출해서 실제 객체를 생성한다. 그리고 이렇게 생성된 객체가 컨트롤러 호출시 넘어가는 것이다.
+  - 그리고 원한다면 직접 이 인터페이스를 확장해서 원하는 ArgumentResolver 를 만들 수도 있다. ( 실제 확장하는 예제는 향후 로그인 처리에서 진행하겠다. )
+
+**ReturnValueHandler**
+
+- 컨트롤러에서 String으로 뷰 이름을 반환해도, 동작하는 이유가 바로 ReturnValueHandler 덕분이다. 어떤 종류들이 있는지 살짝 코드로 확인만 해보자.
+- 스프링은 10여개가 넘는 ReturnValueHandler 를 지원한다.
+  - 예) `ModelAndView` , `@ResponseBody` , `HttpEntity` , `String`
+
+파라미터로 넘어가는 것은 ArgumentResolver가 생성하는 것을 확인했다.<br>
+그러면 HTTP 메시지 컨버터는 어디서 동작할까? HTTP 멧지 컨버터는 어디쯤 있을까?
+
+**HTTP 메시지 컨버터 위치**
+
+<img src="./images/HTTP 메시지 컨버터 위치.png">
+
+- HTTP 메시지 컨버터는 어디쯤 있을까?
+- HTTP 메시지 컨버터를 사용하는 `@RequestBody`도 결국 컨트롤러가 필요하는 파라미터 값에 사용된다. (즉, ArgumentResolver가 해결해야 함.) `@ResponseBody`의 경우도 컨트롤러의 반환 값을 이용한다.(즉, ReturnValueHandler가 해결해야 함.)
+
+**요청의 경우** `@RequestBody`를 처리한느 `ArgumentResolver`가 있고, `HttpEntity`를 처리하는 `ArgumentResolver`가 있다. 이 `ArgumentResolver`들이 HTTP 메시지 컨버터를 사용(이전에 봤던 주요 3개 메시지 컨버터 동작 방식 참고)해서 필요한 객체를 생성하는 것이다. (어떤 종류가 있는지 코드로 살짝 확인해보자)
+
+참고1) HttpEntityMethodProcessor <br>
+
+<img src="./images/HttpEntityMethodProcessor1.png"><br>
+
+- HttpEntityMethodProcessor는 HandlerMethodArgumentResolver를 구현한 것으로 보아, HttpEntity를 처리하는 ArgumentResolver이다. (위에서 보면 HandlerMethodReturnValueHandler도 구현한 것을 볼 수있다. HttpEntityMethodProcessor는 같은 클래스에서 요청 / 응답 둘 다 처리한다.)
+
+참고2) HttpEntityMethodProcessor
+
+<img src="./images/HttpEntityMethodProcessor2.png"><br>
+
+- supportsParameter 메소드를 보면, 파라미터가 HttpEntity이거나 또는 RequestEntity인지 체크하고 있다.
+
+참고3) HttpEntityMethodProcessor
+
+<img src="./images/HttpEntityMethodProcessor3.png">
+
+- supportsParameter에 해당된다면, resolveArgument가 실행되어 객체가 만들어져서 반환된다.
+
+참고4) HttpEntityMethodProcessor
+
+<img src="./images/HttpEntityMethodProcessor4.png"><br>
+
+- readWithMessageConverters에 가보면, 메시지 컨버터를 하나씩 loop 돌면서 체크해서 처리한다. (이전에 했던 메시지 컨버터 동작 방식 참고)
+
+**응답의 경우** `@ResponseBody` 와 `HttpEntity` 를 처리하는 ReturnValueHandler 가 있다.<br>
+그리고 여기에서 HTTP 메시지 컨버터를 호출해서 응답 결과를 만든다.
+
+> [!TIP]
+> 스프링 MVC는 @RequestBody @ResponseBody 가 있으면 RequestResponseBodyMethodProcessor (ArgumentResolver)<br>
+> HttpEntity 가 있으면 HttpEntityMethodProcessor (ArgumentResolver)를 사용한다.
+
+> [!NOTE]
+>
+> - 스프링은 다음을 모두 인터페이스로 제공한다. 따라서 필요하면 언제든지 구현체를 만들어서 기능을 확장할 수 있다.
+>   - `HandlerMethodArgumentResolver`
+>   - `HandlerMethodReturnValueHandler`
+>   - `HttpMessageConverter`
+> - 스프링이 필요한 대부분의 기능을 제공하기 때문에 실제 기능을 확장할 일이 많지는 않다. 기능 확장은 WebMvcConfigurer 를 상속 받아서 스프링 빈으로 등록하면 된다. 실제 자주 사용하지는 않으니 실제 기능 확장이 필요할 때 WebMvcConfigurer 를 검색해보자.
+
+## 스프링 MVC - 기본 기능 정리
+
+이번 섹션에서 학습한 [스프링 MVC - 기본 기능] 내용을 정리해보자.
+
+1. 프로젝트 생성
+   - 처음에는 프로젝트를 간단하게 생성해보았다.
+2. 로깅 간단히 알아보기
+   - 그리고 로깅에 대해서 알아보았다.
+   - 로깅은 SLF4J와 Logback 라이브러리를 사용한다. (SLF4J는 인터페이스이고, 수많은 구현체 중 Logback이 있다.)
+   - 로그 레벨, 로그 사용시 장점 등에 대해서 알아보았다.
+3. 요청 매핑
+   - 이후에는 요청 매핑에 대해서 알아보았다.
+     ( 기본적인 URL 매핑, HTTP Method, 특정 파라미터 조건 매핑, 특정 헤더 조건 매핑, 미디어 타입 조건 매핑 등 )
+4. 요청 매핑 - API 예시
+   - 그리고 요청 매핑에 대한 예제를 만들어보았다.
+5. HTTP 요청 - 기본, 헤더 조회
+   - 그 다음 헤더 조회와 관련해서 편리하게 조회하는 방법에 대해서 알아보았다.
+6. HTTP 요청 파라미터 - 쿼리 파라미터, HTML Form
+   - 그리고 HTTP 요청 파라미터를 조회하는 방법에 대해서 알아보았다. (GET 쿼리 파라미터, POST HTML Form)
+   - 처음에는 단순히 request.getParameter() 로 조회해보았고,
+7. HTTP 요청 파라미터 - @RequestParam
+   - 그 다음 @RequestParam을 사용해서 조회해보았다.
+8. HTTP 요청 파라미터 - @ModelAttribute
+   - @ModelAttribute를 사용하면 객체에 파라미터 정보를 한번에 넣을 수 있다.
+9. HTTP 요청 메시지 - 단순 텍스트
+   - 앞에서는 GET 전송 파라미터, POST HTML Form으로 전송된 데이터에 대해서 알아보았고, 9)부터는 HTTP 메시지 바디에 직접 데이터를 담아서 요청한 경우에 대해서 알아보았다.
+   - 이 경우는 요청 파라미터를 처리하는 @RequestParam, @ModelAttribute을 사용해서 조회할 수 없다. (이 둘은 요청 파라미터를 처리하는 것!)
+   - 그래서 다양한 예시를 통해 HTTP 메시지 바디 정보를 조회하는 방법에 대해서 알아보았다.
+     - 서블릿에서 할때 처럼 InputStream을 사용한 조회.
+     - HttpEntity를 사용한 조회.
+     - @RequestBody를 사용한 조회.
+10. HTTP 요청 메시지 - JSON
+    - HTTP 요청 메시지로 텍스트가 아닌, JSON 데이터인 경우 어떻게 조회하는지 여러 예시 버전을 통해서 알아보았다.
+11. 응답 - 정적 리소스, 뷰 템플릿
+12. HTTP 응답 - HTTP API, 메시지 바디에 직접 입력
+    - |11. ~ 12|를 통해, 정적 리소드에 대한 응답, 뷰 템플릿을 사용해서 HTML을 동적으로 만들어서 응답, HTTP 메시지를 직접 만들어서 응답하는 경우를 알아보았다.
+13. HTTP 메시지 컨버터
+    - 그리고 HTTP 메시지 컨버터에 대해서 자세히 알아보았다.
+    - @RequestBody나 @ReponseBody가 있으면, HTTP 메시지 컨버터가 동작한다. <br>(클래스 타입과 미디어 타입을 체크해서 실제 어떤 메시지 컨버터가 사용되는지 결정된다.)
+14. 요청 매핑 헨들러 어뎁터 구조
+    - HTTP 메시지 컨버터가 스프링 MVC 어디쯤에서 사용되는지 알아보았다.
+      - 비밀은, RequestMappingHandlerAdapter에 있었다.
+      - RequestMappingHandlerAdapter는 핸들러가 필요한 수많은 파라미터에 대한 생성을 HandlerMethodArgumentResolver라는 것을 통해서 필요한 객체들을 생성해낸다. 생성된 데이터를 다 받은 다음, 그 값을 가지고 컨트롤러를 호출한다. 응답도 마찬가지로 ReturnValueHandler라는게 있어서, 거기서 컨트롤러의 값을 변환해서 처리해준다.
+        - (참고) 하지만 ArgumentResolver에서 모든 것을 다 처리하지는 않고, HTTP 메시지 바디에 관한 것은 HttpMessageConverter를 통해서 처리한다.
+    - (요청의 경우) ArgumentResolver 중에서도, @RequestBody를 처리해야하는 ArgumentResolver와 HttpEntity를 처리해야하는 ArgumentResolver인 경우에 한해서는 HTTP 메시지 컨버터를 통해서 처리한다.
+    - (응답의 경우) ReturnValueHandler 중에서도, @ResponseBody를 처리해야하는 ReturnValueHandler와 HttpEntity를 처리해야하는 ReturnValueHandler인 경우에 한해서는 HTTP 메시지 컨버터를 통해서 처리한다.
+
+(참고) 스프링은 다음을 모두 인터페이스로 제공한다.
+
+- HandlerMethodArgumentResolver
+- HadnlerMethodReturnValueResolver
+- HttpMessageConverter
+
+따라서 기능 확장이 가능하다. 실제로 기능을 확장하고 싶은 경우 WebMvcConfigurer를 상속 받아서 스프링 빈으로 등록 후 처리하면 된다. (실제 자주 사용하지 않으니, 실제 기능 확장이 필요할 때 WebMvcConfigurer를 검색해보자.)
+
+여기까지 스프링 MVC의 기본 기능에 대해서 알아보았다.
+다음 섹션부터는 지금까지 학습한 기본 기능을 활용해서 웹 페이지를 만들어보자.
+
+## 스프링 MVC- 웹 페이지 만들기
+
+### 프로젝트 생성
+
+- 스프링 부트 스타터 사이트로 이동해서 스프링 프로젝트를 생성하자. ( https://start.spring.io )
+  - Project: Gradle - Groovy
+  - Language: Java
+  - Spring Boot: 2.4.3
+  - Project Metadata
+    - Group: hello
+    - Artifact: item-service
+    - Name: item-service
+    - Package name: hello.itemservice (패키지 네임은 가급적 특수기호 등은 제외하는 것이 좋다.)
+    - Packaging: Jar
+    - Java: 11
+  - Dependencies
+    - Spring Web
+    - Thymeleaf
+    - Lombok
+- Generate 후, 압축 풀고 intelliJ를 통해 열어보자.
+- 프로젝트를 열고, Lombok 세팅을 위해 [File > settings > Annotation Processors]에서 Enable Annotation Processing 체크박스 선택 후 intelliJ 재시작하자.
+- 프로젝트를 한 번 실행해보자
+
+- Welcom페이지 추가 (`resources/static/index.html`)
+  ```html
+
+  ```
