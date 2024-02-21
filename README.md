@@ -6,13 +6,14 @@
 
 ## 스프링 핵심 원리 - 기본편
 
-[설명](https://github.com/sfK-jm/TIL/blob/main/spring/%5B%EC%8A%A4%ED%94%84%EB%A7%81%ED%95%99%EC%8A%B51%5D%EC%8A%A4%ED%94%84%EB%A7%81%ED%95%B5%EC%8B%AC%EC%9B%90%EB%A6%AC-%EA%B8%B0%EB%B3%B8%ED%8E%B8/%EC%8A%A4%ED%94%84%EB%A7%81%ED%95%B5%EC%8B%AC%EC%9B%90%EB%A6%AC-%EA%B8%B0%EB%B3%B8%ED%8E%B8.md)
+[설명](./spring/[스프링학습1]스프링핵심원리-기본편/스프링핵심원리-기본편.md)
 
-- [소스코드](https://github.com/sfK-jm/TIL/tree/main/spring/%5B%EC%8A%A4%ED%94%84%EB%A7%81%ED%95%99%EC%8A%B51%5D%EC%8A%A4%ED%94%84%EB%A7%81%ED%95%B5%EC%8B%AC%EC%9B%90%EB%A6%AC-%EA%B8%B0%EB%B3%B8%ED%8E%B8/core)
+- [소스코드](./spring/[스프링학습1]스프링핵심원리-기본편/core/)
 
 ## 스프링 MVC - 1편
 
-[설명](https://github.com/sfK-jm/TIL/blob/main/spring/%5B%EC%8A%A4%ED%94%84%EB%A7%81%ED%95%99%EC%8A%B52%5D%EC%8A%A4%ED%94%84%EB%A7%81MVC-1%ED%8E%B8/%08%EC%8A%A4%ED%94%84%EB%A7%81MVC-1%ED%8E%B8.md)
+[설명](./spring/[스프링학습2]스프링MVC-1편/스프링MVC-1편.md)
 
-- [소스코드 1 (servlet)](https://github.com/sfK-jm/TIL/tree/main/spring/%5B%EC%8A%A4%ED%94%84%EB%A7%81%ED%95%99%EC%8A%B52%5D%EC%8A%A4%ED%94%84%EB%A7%81MVC-1%ED%8E%B8/servlet)
-- [소스코드 2 (spring mvc)](https://github.com/sfK-jm/TIL/tree/main/spring/%5B%EC%8A%A4%ED%94%84%EB%A7%81%ED%95%99%EC%8A%B52%5D%EC%8A%A4%ED%94%84%EB%A7%81MVC-1%ED%8E%B8/springmvc)
+- [소스코드 1 (servlet)](./spring/[스프링학습2]스프링MVC-1편/소스코드%20모음/servlet/)
+- [소스코드 2 (spring mvc)](./spring/[스프링학습2]스프링MVC-1편/소스코드%20모음/springmvc/)
+- [소스코드 3 (item-service)](./spring/[스프링학습2]스프링MVC-1편/소스코드%20모음/item-service/)
