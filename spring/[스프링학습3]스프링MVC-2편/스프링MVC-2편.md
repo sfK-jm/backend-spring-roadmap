@@ -2529,8 +2529,81 @@ hello.name=안녕 {0}
 
 ### 스프링 메시지 소스 사용
 
+**MessageSource 인터페이스**<br>
 
+```java
+public interface MessageSource {
+  String getMessage(String code, @Nullable Object[] args, @Nullable String defaultMessage, Locale locale);
+
+  String getMessage(String code, @Nullable Object[] args, Locale locale) throws NoSuchMessageException;
+}
+```
+
+`MessageSource`인터페이스를 보면 코드를 포함한 일부 파라미터로 메시지를 읽어오는 기능을 제공한다.
+
+스프링이 제공하는 메시지 소스를 어떻게 사용하는지 테스크 코드를 통해서 학습해보자
+
+`test/java/hello/itemservice/message.MessageSourceTest.java`<br>
+```java
+package hello.itemservice.message;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.MessageSource;
+
+import java.util.Locale;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@SpringBootTest
+public class MessageSourceTest {
+
+    @Autowired
+    MessageSource ms;
+
+    @Test
+    void helloMessage() {
+        String result = ms.getMessage("hello", null, null);
+        assertThat(result).isEqualTo("안녕");
+    }
+}
+```
+- `ms.getMessage("hello", null, null)`
+  - code: `hello`
+  - args: `null`
+  - local: `null`
+
+> [!TIP]
+> 만약 OS가 영어 버전일 경우 코드에 `Locale.setDefault(Locale.KOREA);`을 추가하면 된다.
+
+
+가장 단순한 테스트는 메시지 코드로 `hello`를 입력하고 나머지 값은 `null`을 입력했다.<br>
+`locale`정보가 없으면 `basename`에서 설정한 기본 이름 메시지 파일을 조회한다. `basename`으로 `messages`를 지정 했으므로 `messages.properties`파일에서 데이터 조회한다.
+
+**MessageSourceTest추가 - 메시지가 없는 경우, 기본 메시지**<br>
+```java
+@Test
+void notFoundMessageCode() {
+    assertThatThrownBy(() -> ms.getMessage("no_code", null, null))
+            .isInstanceOf(NoSuchMessageException.class);
+}
+
+@Test
+void notFoundMessageCodeDefaultMessage() {
+    String result = ms.getMessage("no_code", null, "기본 메세지", null);
+    assertThat(result).isEqualTo("기본 메세지");
+}
+```
+
+- 메시지가 없는 경우에는 `NoSuchMessageException`이 발생한다.
+- 메시지가 없어도 기본 메시지(`defaultMessage`)를 사용하면 기본 메시지가 반환된다.
+
+**MessageSourceTest추가 - 매개변수 사용**<br>
+```java
+
+```
 
 ### 웹 애플리케이션에 메시지 적용하기
 
-### 웹 애플리케이션에 국제화 적용하기
+### 웹 애플리케이션에 국제화 적용하기 
