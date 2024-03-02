@@ -2476,9 +2476,60 @@ item.quantity=수량
 **직접 등록**
 
 ```java
+@Bean
+public MessageSource messageSource() {
+  ResourceBundleMessageSource messageSource = new ResourceBundleMessageSource();
+  messageSource.setBasenames("messages", "errors");
+  messageSource.setDefaultEncoding("utf-8");
+  return messageSource;
+}
+```
+
+- `basenames`: 설정 파일의 이름을 지정한다
+  - `messages`로 지정하면 `messages.properties`파일을 읽어서 사용한다.
+  - 추가로 국제화 기능을 적용하러면 `messages_en.properties`, `messages_ko.properties`와 같이 파일명 마지막에 언어 정보를 주면 된다. 만약 찾을 수 있는 국제화 파일이 없으면 `messages.properties`(언어정보가 없는 파일명)를 기본으로 사용한다.
+  - 파일의 위치는 `/resources/messages.properties`에 두면 된다.
+  - 여러 파일을 한번에 지정할 수 있다. 여기서는 `messages`, `errors`둘을 지정했다.
+- `defaultEncoding`: 인코딩 정보를 지정한다. `utf-8`을 사용하면 된다.
+
+**스프링 부트**<br>
+스프링 부트를 사용하면 스프링 부트가 `MessageSource`를 자동으로 스프링 빈으로 등록한다.
+
+**스프링 부트 메시지 소스 설정**<br>
+스프링 부트를 사용하면 다음과 같이 메시지 소스를 설정할 수 있다.<br>
+`application.properties`<br>
+`spring.messages.basename=messages, config.i18n.messages`
+
+**스프링 부트 메시지 소스 기본 값**<br>
+`spring.messages.basename=messages`
+
+`MessageSource`를 스프링 빈으로 등록하지 않고, 스프링 부트와 관련된 별도의 설정을 하지 않으면 `messages`라는 이름으로 기본 동작한다. 따라서 `messages_en.properties`, `messages_ko.properties`, `messages.properties` 파일만 등록하면 자동으로 인식된다.
+
+#### 메시지 파일 만들기
+
+메시지 파일을 만들어보자. 국제화 테스트를 위해서 `messages_en`파일도 추가하자.
+
+- `messages.properties`: 기본 값으로 사용(한글)
+- `messages_en.properties`: 영어 국제화 사용  
+
+**주의: 파일명은 message가 아니라 messages다!**<br>
+`/resources/imessages.properties`
+
+```properties
+hello=안녕
+hello.name=안녕 {0}
+```
+
+`/resources/messages_en.properties`
+
+```
+ hello=hello
+ hello.name=hello {0}
 ```
 
 ### 스프링 메시지 소스 사용
+
+
 
 ### 웹 애플리케이션에 메시지 적용하기
 
