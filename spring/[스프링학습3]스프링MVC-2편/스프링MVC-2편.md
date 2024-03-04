@@ -3291,6 +3291,18 @@ if (!errors.isEmpty()) {
 
 앞서 만든 기능을 유지하기 위해, 컨트롤러와 템플릿 파일을 복사하자.
 
+- `hello.itemservice.web.validation.ValidationItemControllerV1`복사
+- `hello.itemservice.web.validation.ValidationItemControllerV2`붙여넣기
+- URL 경로 변경: `validation/v1/` -> `validatiion/v2/`
+
+**템플릿 파일 복사**<br>
+`validation/v1`디렉토리의 모든 템플릿 파일을 `validation/v2`디렉토리로 복사<br>
+- `/resources/templates/validation/v1/` -> `/resources/templates/validation/v2` 
+  - `addForm.html`
+  - `editForm.html`
+  - `item.html`
+  - `items.html`
+
 ### BindingResult1
 
 ### BindingResult2
