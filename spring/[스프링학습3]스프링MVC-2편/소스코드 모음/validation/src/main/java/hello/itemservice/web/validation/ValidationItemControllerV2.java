@@ -72,6 +72,7 @@ public class ValidationItemControllerV2 {
             model.addAttribute("errors", errors);
             return "validation/v2/addForm";
         }
+        
 
         // 성공 로직
         Item savedItem = itemRepository.save(item);
