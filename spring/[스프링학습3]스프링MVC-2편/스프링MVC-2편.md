@@ -2601,9 +2601,167 @@ void notFoundMessageCodeDefaultMessage() {
 
 **MessageSourceTest추가 - 매개변수 사용**<br>
 ```java
-
+@Test
+void argumentMessage() {
+    String result = ms.getMessage("hello.name", new Object[]{"Spring"}, null);
+    assertThat(result).isEqualTo("안녕 Spring");
+}
 ```
 
+다음 메시지의 {0} 부분은 매개변수를 전달해서 치환할 수 있다.<br>
+`hello.name=안녕 {0}` -> Spring 단어를 매개변수로 전달 -> `안녕 Spring`
+
+**국제화 파일 선택**<br>
+locale정보를 기반으로 국제화 파일을 선택한다.
+
+- Locale이 `en_US`의 경우 `messages_en_US` -> `messages_en` -> `messages`순서로 찾는다.
+- `Locale`에 맞추어 구체적인 것이 있으면 구체적인 것을 찾고, 없으면 디폴트를 찾는다고 이해하면 된다.
+
+**MessageSourceTest 추가 - 국제화 파일 선택1**
+```java
+@Test
+void defaultLang() {
+    assertThat(ms.getMessage("hello", null, null)).isEqualTo("안녕");
+    assertThat(ms.getMessage("hello", null, Locale.KOREA)).isEqualTo("안녕");
+}
+```
+
+- `ms.getMessage("hello", null, null)`: locale정보가 없으므로 `messages`를 사용
+- `ms.getMessage("hello", null, Locale.KOREA)`: locale정보가 있지만, `message_ko`가 없으므로 `message`를 사용
+
+**MessageSourceTest추가 - 국제화 파일 선택2**<br>
+```java
+@Test
+void enLang() {
+      assertThat(ms.getMessage("hello", null, Locale.ENGLISH)).isEqualTo("hello");
+}
+```
+
+- `ms.getMessage("hello", null, Locale.ENGLISH)`: locale정보가 `Locale.ENGLISH`이므로 `messages_en`을 찾아서 사용
+
+> [!TIP]
+> `Locale`정보가 없는 경우 `Locale.getDefault()`을 호출해서 시스템의 기본 로케일을 사용합니다.<br>
+> 예) `locale = null`인 경우 -> 시스템 기본 `locale`이 `ko_KR`이므로 `messages_ko.properties`조회 시도 -> 조회 실패 -> `messages.properties`조회
+
+
 ### 웹 애플리케이션에 메시지 적용하기
+
+실제 웹 애플리케이션에 메시지를 적용해보자
+
+먼저 메시지를 추가 등록하자
+
+`messages.properties`<br>
+```
+label.item=상품
+label.item.id=상품 ID
+label.item.itemName=상품명
+label.item.price=가격
+label.item.quantity=수량
+
+page.items.=상품목록
+page.item=상품 상세
+page.addItem=상품 등록
+page.updateItem=상품 수정
+
+button.save=저장
+button.cancel=취소
+```
+
+#### 타임리프 메시지 적용
+타임리프의 메시지 표현식 `#{...}`를 사용하면 스프링의 메시지를 편리하게 조회할 수 있다.<br>
+예를 들어서 방금 등록한 상품이라는 이름을 조회하려면 `#{label.item}`이라고 하면 된다.
+
+**렌더링 전**<br>
+`<div th:text="#{label.item}"></h2>`
+
+**렌더링 후**<br>
+`<div>상품</h2>`
+
+타임리프 템플릿 파일에 메시지를 적용해보자
+
+**적용 대상**<br>
+`addForm.html`<br>
+`editForm.html`<br>
+`item.html`<br>
+`items.html`<br>
+
+**addForm.html**<br>
+```html
+<!DOCTYPE HTML>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <link th:href="@{/css/bootstrap.min.css}"
+          href="../css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .container {
+            max-width: 560px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <div class="py-5 text-center">
+        <h2 th:text="#{page.addItem}">상품 등록</h2>
+    </div>
+
+    <h4 class="mb-3">상품 입력</h4>
+
+    <form action="item.html" th:action th:object="${item}" method="post">
+        <div>
+            <label for="itemName" th:text="#{label.item.itemName}">상품명</label>
+            <input type="text" id="itemName" th:field="*{itemName}" class="form-control" placeholder="이름을 입력하세요">
+        </div>
+        <div>
+            <label for="price" th:text="#{label.item.price}">가격</label>
+            <input type="text" id="price" th:field="*{price}" class="form-control" placeholder="가격을 입력하세요">
+        </div>
+        <div>
+            <label for="quantity" th:text="#{label.item.quantity}">수량</label>
+            <input type="text" id="quantity" th:field="*{quantity}" class="form-control" placeholder="수량을 입력하세요">
+        </div>
+
+        <hr class="my-4">
+
+        <div class="row">
+            <div class="col">
+                <button class="w-100 btn btn-primary btn-lg" type="submit" th:text="#{button.save}">저장</button>
+            </div>
+            <div class="col">
+                <button class="w-100 btn btn-secondary btn-lg"
+                        onclick="location.href='items.html'"
+                        th:onclick="|location.href='@{/message/items}'|"
+                        type="button" th:text="#{button.cancel}">취소</button>
+            </div>
+        </div>
+
+    </form>
+
+</div> <!-- /container -->
+</body>
+</html>
+```
+
+**페이지 이름에 적용**<br>
+- `<h2>상품 등록 폼</h2>`
+  - `<h2 th:text="#{page.addItem}">상품 등록</h2>`
+
+**레이블에 적용**<br>
+- `<label for="itemName">상품명</label>`
+  - `<label for="itemName" th:text="#{label.item.itemName}">상품명</label>`
+  - `<label for="price" th:text="#{label.item.price}">가격</label>`
+  - `<label for="quantity" th:text="#{label.item.quantity}">수량</label>`
+
+**버튼에 적용**<br>
+- `<button type="submit">상품 등록</button>`
+  - `<button type="submit" th:text="#{button.save}">저장</button>`
+  - `<button type="button" th:text="#{button.cancel}">취소</button>`
+
+**editForm.html**<br>
+```html
+
+```
 
 ### 웹 애플리케이션에 국제화 적용하기 
