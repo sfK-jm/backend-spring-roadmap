@@ -2658,7 +2658,7 @@ label.item.itemName=상품명
 label.item.price=가격
 label.item.quantity=수량
 
-page.items.=상품목록
+page.items=상품목록
 page.item=상품 상세
 page.addItem=상품 등록
 page.updateItem=상품 수정
@@ -2761,7 +2761,552 @@ button.cancel=취소
 
 **editForm.html**<br>
 ```html
+<!DOCTYPE HTML>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <link th:href="@{/css/bootstrap.min.css}"
+          href="../css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .container {
+            max-width: 560px;
+        }
+    </style>
+</head>
+<body>
 
+<div class="container">
+
+    <div class="py-5 text-center">
+        <h2 th:text="#{page.updateItem}">상품 수정</h2>
+    </div>
+
+    <form action="item.html" th:action th:object="${item}" method="post">
+        <div>
+            <label for="id" th:text="#{label.item.id}">상품 ID</label>
+            <input type="text" id="id" th:field="*{id}" class="form-control" readonly>
+        </div>
+        <div>
+            <label for="itemName" th:text="#{label.item.itemName}">상품명</label>
+            <input type="text" id="itemName" th:field="*{itemName}" class="form-control">
+        </div>
+        <div>
+            <label for="price" th:text="#{label.item.price}">가격</label>
+            <input type="text" id="price" th:field="*{price}" class="form-control">
+        </div>
+        <div>
+            <label for="quantity" th:text="#{label.item.quantity}">수량</label>
+            <input type="text" id="quantity" th:field="*{quantity}" class="form-control">
+        </div>
+
+        <hr class="my-4">
+
+        <div class="row">
+            <div class="col">
+                <button class="w-100 btn btn-primary btn-lg" type="submit"
+                th:text="#{button.save}">저장</button>
+            </div>
+            <div class="col">
+                <button class="w-100 btn btn-secondary btn-lg"
+                        onclick="location.href='item.html'"
+                        th:onclick="|location.href='@{/message/items/{itemId}(itemId=${item.id})}'|"
+                        type="button" th:text="#{button.cancel}">취소</button>
+            </div>
+        </div>
+
+    </form>
+
+</div> <!-- /container -->
+</body>
+</html>
 ```
 
+**item.html**<br>
+```html
+<!DOCTYPE HTML>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <link th:href="@{/css/bootstrap.min.css}"
+            href="../css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .container {
+            max-width: 560px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <div class="py-5 text-center">
+        <h2 th:text="#{page.item}">상품 상세</h2>
+    </div>
+
+    <!-- 추가 -->
+    <h2 th:if="${param.status}" th:text="'저장 완료'"></h2>
+
+    <div>
+        <label for="itemId" th:text="#{label.item.id}">상품 ID</label>
+        <input type="text" id="itemId" name="itemId" class="form-control" value="1" th:value="${item.id}" readonly>
+    </div>
+    <div>
+        <label for="itemName" th:text="#{label.item.itemName}">상품명</label>
+        <input type="text" id="itemName" name="itemName" class="form-control" value="상품A" th:value="${item.itemName}" readonly>
+    </div>
+    <div>
+        <label for="price" th:text="#{label.item.price}">가격</label>
+        <input type="text" id="price" name="price" class="form-control" value="10000" th:value="${item.price}" readonly>
+    </div>
+    <div>
+        <label for="quantity" th:text="#{label.item.quantity}">수량</label>
+        <input type="text" id="quantity" name="quantity" class="form-control" value="10" th:value="${item.quantity}" readonly>
+    </div>
+
+    <hr class="my-4">
+
+    <div class="row">
+        <div class="col">
+            <button class="w-100 btn btn-primary btn-lg"
+                    onclick="location.href='editForm.html'"
+                    th:onclick="|location.href='@{/message/items/{itemId}/edit(itemId=${item.id})}'|"
+                    type="button" th:text="#{page.updateItem}">상품 수정</button>
+        </div>
+        <div class="col">
+            <button class="w-100 btn btn-secondary btn-lg"
+                    onclick="location.href='items.html'"
+                    th:onclick="|location.href='@{/message/items}'|"
+                    type="button" th:text="#{page.items}">목록으로</button>
+        </div>
+    </div>
+
+</div> <!-- /container -->
+</body>
+</html>
+```
+
+**items.html**<br>
+```html
+<!DOCTYPE HTML>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <link th:href="@{/css/bootstrap.min.css}"
+            href="../css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="container" style="max-width: 600px">
+    <div class="py-5 text-center">
+        <h2 th:text="#{page.items}">상품 목록</h2>
+    </div>
+
+    <div class="row">
+        <div class="col">
+            <button class="btn btn-primary float-end"
+                    onclick="location.href='addForm.html'"
+                    th:onclick="|location.href='@{/message/items/add}'|"
+                    type="button" th:text="#{page.addItem}">상품 등록</button>
+        </div>
+    </div>
+
+    <hr class="my-4">
+    <div>
+        <table class="table">
+            <thead>
+            <tr>
+                <th th:text="#{label.item.id}">ID</th>
+                <th th:text="#{label.item.itemName}">상품명</th>
+                <th th:text="#{label.item.price}">가격</th>
+                <th th:text="#{label.item.quantity}">수량</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="item : ${items}">
+                <td><a href="item.html" th:href="@{/message/items/{itemId}(itemId=${item.id})}" th:text="${item.id}">회원id</a></td>
+                <td><a href="item.html" th:href="@{|/message/items/${item.id}|}" th:text="${item.itemName}">상품명</a></td>
+                <td th:text="${item.price}">10000</td>
+                <td th:text="${item.quantity}">10</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+</div> <!-- /container -->
+
+</body>
+</html>
+```
+
+**실행**<br>
+잘 동작하는지 확인하기 위해 `messages.properties`파일의 내용을 가격 -> 금액과 같이 변경해서 확인해보자. 정상 동작하면 다시 돌려두자.
+
+**참고로 파라미터는 다음과 같이 사용할 수 있다.**<br>
+`hello.name=안녕 {0}`<br>
+`<p th:text="#{hello.name(${item.itemName})}"></p>`
+
 ### 웹 애플리케이션에 국제화 적용하기 
+
+이번에는 웹 애플리케이션에 국제화를 적용해보자. 먼저 영어 메시지를 추가하자.
+
+`messages_en.properties`<br>
+```
+label.item=Item
+label.item.id=Item ID
+label.item.itemName=Item Name
+label.item.price=price
+label.item.quantity=quantity
+
+page.items=Item List
+page.item=Item Detail
+page.addItem=Item Add
+page.updateItem=Item Update
+
+button.save=Save
+button.cancel=Cancel
+```
+
+사실 이것으로 국제화 작업은 거의 끝났다. 앞에서 템플릿 파일에는 모두 `#{...}`를 통해서 메시지를 사용하도록 적용해두었기 때문이다.
+
+<br>
+
+**웹으로 확인하기**<br>
+웹 브라우저의 언어 설정 값을 변경하면서 국제화 적용을 확인해보자.<br>
+크롬 브라우저 -> 설정 -> 언어를 검색하고, 우선 순위를 변경하면 된다.<br>
+우선순위를 영어로 변경하고 테스트 해보자<br>
+웹 브라우저의 언어 설정 값을 변겅하면 요청시 `Accept-Language`의 값이 변경된다.
+
+`Accept-Language`는 클라이언트가 서버에 기대하는 언어 정보를 담아서 요청하는 HTTP요청 헤더이다.
+
+#### 스프링의 국제화 메시지 선택
+
+앞서 `MessageSource`테스트에서 보았듯이 메시지 기능은 `Locale`정보를 알아야 언어를 선택할 수 있다.
+
+결국 스프링도 `Locale`정보를 알아야 언어를 선택할 수 있는데, 스프링은 언어 선택시 기본으로 `Accept-Language`헤더의 값을 사용한다.
+
+`LocaleResolver`<br>
+스프링은 `Locale`선택 방식을 변경할 수 있도록 `LocaleResolver`라는인터페이스를 제공하는데, 스프링 부트는 기본으로 `Accept-Language`를 활용하는 `AcceptHeaderLocaleResolver`를 사용한다.
+
+**LocaleResolver 인터페이스**<br>
+```java
+public interface LocaleResolver{
+  Locale resolverLocale(HttpSerlvetRequest request);
+
+  void setLocale(HttpServletRequest request, @Nullable HttpServletResponse response, @Nullable Locale locale);
+}
+```
+
+**LocaleResolver 변경**<br>
+만약 `Locale`선택 방식을 변경하려면 `LocaleResolver`의 구현체를 변경해서 쿠키나 세션 기반의 `Locale`선택 기능을 사용할 수 있다. 예를 들어서 고객이 직접 `Locale`을 선택하도록 하는 것이다. 관련해서 `LocaleResolver`를 검색하면 수 많은 예제가 나오니 필요한 부분만 참고하자
+
+## 검증1 - Validation
+
+### 검증 요구사항
+
+상품 관리 시스템에 새로운 요구사항이 추가되었다.
+
+**요구사항: 검증 로직 추가**<br>
+- 타입 검증
+  - 가격, 수량에 문자가 들어가면 검증 오류 처리
+- 필드 검증
+  - 상품명: 필수, 공백 x
+  - 가격: 1000원 이상, 1백만원 이하
+  - 수량: 최대 9999
+- 특정 필드의 범위를 넘어서는 검증
+  - 가격 * 수량 합은 10000원 이상
+
+지금까지 만든 웹 애플리케이션은 폼 입력시 숫자를 문자로 작성하거나해서 검증 오류가 발생하면 오류 화면으로 바로 이동한다. 이렇게 되면 사용자는 처음부터 해당 폼으로 다시 이동해서 입력을 해야 하낟. 아마도 이런 서버스라면 사용자는 금방 떠나버릴 것이다. 웹 서비스는 폼 입력시 오류가 발생하면, 고객이 입력한 데이터를 유지한 상태로 어떤 오류가 발생했는지 친절하게 알려주어야 한다.
+
+**컨트롤러의 중요한 역활중 하나는 HTTP요청이 정상인지 검증하는 것이다.**그리고 정상 로직보다 이런 검증 로직을 잘 개발하는 것이 어쩌면 더 어려울 수 있다.
+
+**참고: 클라이언트 검증, 서버 검증**<br>
+- 클라이언트 검증은 조작할 수 있으므로 보안에 취약하다
+- 서버만으로 검증하면, 즉각적인 고객 사용성이 부족해진다.
+- 둘을 적절히 섞엉서 사용하되, 최종적으로 서버 검증은 필수
+- API방식을 사용하면 API스펙을 잘 정의해서 검증오류를 API응답 결과에 잘 남겨주어야 함
+
+먼저 검증을 직접 구현해보고, 뒤에서 스프링과 타임리프가 제공하는 검증 기능을 활용해보자
+
+### 프로젝트 설정 V1
+
+`Validation`
+
+### 검증 직접 처리 - 소개
+
+**상품 저장 성공**<br>
+![img](./images/검증/상품저장성공.png)
+
+사용자가 상품 등록 폼에서 정상 범위의 데이터를 입력하면, 서버에서는 검증 로직이 통과하고, 상품을 저장하고, 상품 상세 화면으로 redirect한다.
+
+**상품 저장 검증 실패**<br>
+![img](./images/검증/상품저장실패.png)
+
+고객이 상품 등록 폼에서 상품명을 입력하지 않거나, 가격, 수량 등이 너무 작거나 커서 검증 범위를 넘어서면, 서버 검증 로직이 실패한다. 이렇게 검증에 실패한 경우 고객에게 다시 상품 등록 폼을 보여주고, 어떤 값을 잘못 입력했는지 친절하게 알려주어야 한다.
+
+이제 요구사항에 맞추어 검증 로직을 직접 개발해보자
+
+### 검증 직접 처리 - 개발
+
+**상품 등록 검증**<br>
+먼저 상품 등록 검증 코드를 작성해보자
+
+**ValidationItemControllerV1 - addItem() 수정**<br>
+```java
+@PostMapping("/add")
+public String addItem(@ModelAttribute Item item, RedirectAttributes redirectAttributes, Model model) {
+
+    // 검증 오류 결과를 보관
+    Map<String, String> errors = new HashMap<>();
+
+    // 검증 로직
+    if (!StringUtils.hasText(item.getItemName())) {
+        errors.put("itemName", "상품 이름은 필수입니다.");
+    }
+
+    if (item.getPrice() == null || item.getPrice() < 1000 || item.getPrice() > 1000000) {
+        errors.put("price", "가격은 1,000 ~ 1,000,000 까지 허용합니다.");
+    }
+
+    if (item.getQuantity() == null || item.getQuantity() > 9999) {
+        errors.put("quantity", " 수량은 최대 9,999까지 허용합니다.");
+    }
+
+    // 특정 필드가 아닌 복합 룰 검증
+    if (item.getPrice() != null && item.getQuantity() != null) {
+        int resultPrice = item.getPrice() * item.getQuantity();
+        if (resultPrice < 10000) {
+            errors.put("globalError", "가격 * 수량의 합은 10,000원 이상이어야 합니다. 현재 값 = " + resultPrice);
+        }
+    }
+
+    // 검증에 실패하면 다시 입력 폼으로
+    if (!errors.isEmpty()) {
+        model.addAttribute("errors", errors);
+        return "validation/v1/addForm";
+    }
+
+    // 성공 로직
+    Item savedItem = itemRepository.save(item);
+    redirectAttributes.addAttribute("itemId", savedItem.getId());
+    redirectAttributes.addAttribute("status", true);
+    return "redirect:/validation/v1/items/{itemId}";
+}
+```
+
+**검증 오류 보관**<br>
+`Map<String, String> errors = new HashMap();`
+만약 검증시 오류가 발생하면 어떤 검증에서 오류가 발생했는지 정보를 담아둔다.
+
+**검증 로직**<br>
+``` java
+if (!StringUtils.hasText(item.getItemName())) { 
+  errors.put("itemName", "상품 이름은 필수입니다.");
+}
+```
+
+`import org.springframework.util.StringUtils;` 추가 필요
+
+검증시 오류가 발생하면 `errors`에 담아둔다. 이때 어떤 필드에서 오류가 발생했는지 구분하기 위해 오류가 발생한 필드명을 `key`로 사용한다. 이후 뷰에서 이 데이터를 사용해서 고개게게 친절한 오류 메시지를 출력할 수 있다.
+
+**특정 필드의 범위를 넘어서는 검증 로직**<br>
+```java
+//특정 필드의 범위를 넘어서는 검증 로직
+if (item.getPrice() != null && item.getQuantity() != null) {
+     int resultPrice = item.getPrice() * item.getQuantity();
+     if (resultPrice < 10000) {
+        errors.put("globalError", "가격 * 수량의 합은 10,000원 이상이어야 합니다. 현재 값 = " + resultPrice);
+  } 
+}
+```
+
+특정 필드를 넘어서는 오류를 처리해야 할 수도 있다. 이때는 필드 이름을 넣을 수 없으므로 `globalError`라는 `key`를 사용한다.
+
+**검증에 실패하면 다시 입력 폼으로**<br>
+```java
+if (!errors.isEmpty()) {
+  mdoel.addAttribute("errors", errors);
+  return "validation/v1/addForm";
+}
+```
+
+만약 검증에서 오류 메시지가 하나라도 있으면 오류 메시지를 출력하기 위해 `model`에 `errors`를 담고, 입력 폼이 있는 뷰 템플릿으로 보낸다.
+
+**addForm.html**<br>
+```html
+<!DOCTYPE HTML>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <link th:href="@{/css/bootstrap.min.css}"
+          href="../css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .container {
+            max-width: 560px;
+        }
+        .field-error {
+            border-color: #dc3545;
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <div class="py-5 text-center">
+        <h2 th:text="#{page.addItem}">상품 등록</h2>
+    </div>
+
+    <form action="item.html" th:action th:object="${item}" method="post">
+        <div th:if="${errors?.containsKey('globalError')}">
+            <p class="field-error" th:text="${errors['globalError']}">전체 오류 메시지</p>
+        </div>
+
+        <div>
+            <label for="itemName" th:text="#{label.item.itemName}">상품명</label>
+            <input type="text" id="itemName" th:field="*{itemName}"
+                   th:class="${errors?.containsKey('itemName')}? 'form-control field-error' : 'form-control'"
+                   class="form-control" placeholder="이름을 입력하세요">
+            <div class="field-error" th:if="${errors?.containsKey('itemName')}" th:text="${errors['itemName']}">
+                상품명 오류
+            </div>
+        </div>
+        <div>
+            <label for="price" th:text="#{label.item.price}">가격</label>
+            <input type="text" id="price" th:field="*{price}"
+                   th:class="${errors?.containsKey('price')} ? 'form-control field-error' : 'form-control'"
+                   class="form-control" placeholder="가격을 입력하세요">
+            <div class="field-error" th:if="${errors?.containsKey('price')}" th:text="${errors['price']}">가격 오류</div>
+        </div>
+        <div>
+            <label for="quantity" th:text="#{label.item.quantity}">수량</label>
+            <input type="text" id="quantity" th:field="*{quantity}"
+                   th:class="${errors?.containsKey('quantity')} ? 'form-control field-error' : 'form-control'"
+                   class="form-control" placeholder="수량을 입력하세요">
+            <div class="field-error" th:if="${errors?.containsKey('quantity')}"
+                 th:text="${errors['quantity']}">
+                수량 오류
+            </div>
+        </div>
+
+        <hr class="my-4">
+
+        <div class="row">
+            <div class="col">
+                <button class="w-100 btn btn-primary btn-lg" type="submit" th:text="#{button.save}">상품 등록</button>
+            </div>
+            <div class="col">
+                <button class="w-100 btn btn-secondary btn-lg"
+                        onclick="location.href='items.html'"
+                        th:onclick="|location.href='@{/validation/v1/items}'|"
+                        type="button" th:text="#{button.cancel}">취소</button>
+            </div>
+        </div>
+
+    </form>
+
+</div> <!-- /container -->
+</body>
+</html>
+```
+
+**css추가**<br>
+```css
+.field-error {
+  border-color: #dc3545;
+  color: #dc3545;
+}
+```
+
+이 부분은 오류 메시지를 빨간색으로 강조하기 위해 추가했다.
+
+**글로벌 오류 메시지**<br>
+```html
+<div th:if="${errors?.containsKey('globalError')}">
+  <p class="field-error" th:text="${errors['globalError']}">전체 오류 메시지</p>
+</div>
+```
+
+오류 메시지는 `errors`에 내용이 있을때만 출력하면 된다. 타임리프의 `th:if`를 사용하면 조건에 만족할 때만 해당 HTML태그를 출력할 수 있다.
+
+> [!CAUTION]
+> **참고 Safe Navigation Operator**<br>
+> 만약 여기에서 `errors`가 `null`이라면 어떻게 될까?<br>
+> 생각해보면 등록폼에 진입한 시점에는 `errors`가 없다.
+> 따라서 `errors.containsKey()`를 호출하는 순간 `NullPointerException`이 발생한다.
+>
+> `errors?.`은 `errors`가 `null`일때 `NullPointerException`이 발생하는 대신, `null`을 반환하는 문법이다.<br>
+> `th:if`에서 `null`은 실패로 처리되므로 오류 메시지가 출력되지 않는다.<br>
+> 이것은 스프링의 SpringEL이 제공하는 문법이다. 자세한 내용은 다음을 참고하자.<br>
+> https://docs.spring.io/spring-framework/docs/current/reference/html/core.html#expressions-operator-safe-navigation
+
+가격이 1000원, 수량 1개를 선택하면 다음과 같은 HTML결과 값을 볼 수 있다.<br>
+```html
+<div>
+  <p class="field-error">가격 * 수량의 합은 10,000원 이상이어야 합니다. 현재 값 = 1000</p>
+</div>
+```
+
+**필드 오류 처리**
+```html
+<input type="text" th:classappend="${errors?.containsKey('itemName')} ? 
+'field-error': _" class="form-control">
+```
+`classappend`를 사용해서 해당 필드에 오류가 있으면 `field-error`라는 클래스 정보를 더해서 폼의 색깔을 빨간색으로 강조한다. 만약 값이 없으면 `-`(No-Operation)을 사용해서 아무것도 하지 않는다.
+
+**필드 오류 처리 - 입력 폼 색상 적용**<br>
+```html
+<input type="text" class="form-control field-error">
+```
+
+**필드 오류 처리 - 메시지**<br>
+```html
+<div class="field-error" th:if="${errors?.containsKey('itemName')}"
+     th:text="${errors['itemName']}">
+    상품명 오류
+</div>
+```
+글로벌 오류 메시지에서 설명한 내용과 동일하고, 필드 오류를 대상을 한다.
+
+**실행**<br>
+상품 등록을 실행하고 검증이 잘 동작 하는지 확인해보자.
+- http://localhost:8080/validation/v1/items/add
+
+상품 수정의 검증은 더 효율적인 검증 처리 방법을 학습한 다음에 진행한다.
+
+**정리**
+- 만약 검증 오류가 발생하면 입력 폼을 다시 보여준다.
+- 검증 오류들을 고객에게 친절하게 안내해서 다시 입력할 수 있게 한다.
+- 검증 오류가 발생해도 고객이 입력한 데이터가 유지된다.
+
+**남은 문제점**
+- 뷰 템플릿에서 중복 처리가 많다. 뭔가 비슷하다.
+- 타입 오류 처리가 안된다. `Item`의 `price`, `quantity`같은 숫자 필드는 타입이 `Interger`이므로 문자 타입으로 설정하는 것이 불가능하다. 숫자 타입에 문자가 들어오면 오류가 발생한다. 그런데 이러한 오류는 스프링MVC에서 컨트롤러에 진입하기도 전에 예외가 발생하기 때문에, 컨트롤러가 호출되지도 않고, 400 예외가 발생하면서 오류 페이지를 띄워준다.
+- `Item`의 `price`에 문자를 입력하는 것 처럼 타입 오류가 발생해도 고객이 입력한 문자를 화면에 남겨야 한다. 만약 컨트롤러가 호출된다고 가정해도 `Item`의 `price`는 `Interger`이므로 문자를 보관할 수가 없다. 결국 문자는 바인딩이 불가능하므로 고객이 입력한 문자가 사라지게 되고, 고객은 본인이 어떤 내용을 입력해도 오류가 발생했는지 이해하기 어렵다.
+- 결국 고객이 입력한 값도 어딘가 별도로 관리가 되어야 한다.
+
+지금부터 스프링이 제공하는 검증 방법을 하나씩 알아보자
+
+### 프로젝트 준비 V2
+
+### BindingResult1
+
+### BindingResult2
+
+### FieldError, ObjectError
+
+### 오류 코드와 메시지 처리1
+
+### 오류 코드와 메시지 처리2
+
+### 오류 코드와 메시지 처리3
+
+### 오류 코드와 메시지 처리4
+
+### 오류 코드와 메시지 처리5
+
+### 오류 코드와 메시지 처리6
+
+### Validator 분리 1
+
+### Validator 분리 2
