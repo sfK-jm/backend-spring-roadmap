@@ -5004,10 +5004,10 @@ Spring MVC 구조
 - 상품 등록
 - 상품 수정
 
-**서비스 제공 화면**
+**서비스 제공 화면**<br>
 <img src="./images/서비스 제공 화면.png"><br>
 
-**서비스 제공 흐름**
+**서비스 제공 흐름**<br>
 <img src="./images/서비스 제공 흐름.png"><br>
 
 - 클라이언트는 상품 목록 페이지를 볼 수 있다. (참고. 항상 컨트롤러를 통해서 뷰가 호출된다)
@@ -5189,7 +5189,7 @@ class ItemRepositoryTest {
 
 핵심 비즈니스 로직을 개발하는 동안, 웹 퍼블리셔는 HTML 마크업을 완료했다. 다음 파일들을 경로에 넣고 잘 동작하는지 확인해보자
 
-**부트스트랩**
+**부트스트랩**<br>
 참고로 여기에는 HTML을 편리하게 개발하지 위해 부트스트랩을 사용했다. 먼저 필요한 부트스트랩 파일을 설치하자
 
 부트스트랩을 다운받고 압축을 풀어서 bootstrap.min.css 를 복사해서 `resources/static/css/bootstrap.min.css`로 추가하자.
@@ -5848,7 +5848,7 @@ public class BasicItemController {
 >
 > - **ModelAttribute**
 >   - **기능 1 : 요청 파라미터 처리**
->     - `@ModelAttribute`는 `Item` 객체를 생성하고, 요청 파라미터의 값을 프로퍼티 접근ㄴ법 (`setXxx`)으로 입력해준다.
+>     - `@ModelAttribute`는 `Item` 객체를 생성하고, 요청 파라미터의 값을 프로퍼티 접근법 (`setXxx`)으로 입력해준다.
 >   - **기능 2 : Model 추가**
 >     - `@ModelAttribute`는 중요한 한가지 기능이 있는데 바로 모델(Model)에 `@ModelAttribute`로 지정한 객체를 자동으로 넣어준다. 지금 코드를 보면 `model.addAttribute("item", item)` 가 주석처리 되어 있어도 잘 동작하는 것을 확인할 수 있다.
 >     - 모델(Model)에 데이터를 담을 때는 이름이 필요하다. 이름은 `@ModelAttribute` 에 지정한 `name(value)` 속성을 사용한다. 만약 다음과 같이 `@ModelAttribute` 의 이름을 다르게 지정하면 다른 이름으로 모델에 포함된다.
@@ -6004,7 +6004,7 @@ public class BasicItemController {
 먼저 화면의 전체 흐름은 다음과 같다.<br>
 <img src="./images/웹 페이지 흐름.png"><br>
 
-**POST 등록 후 새로 고침**
+**POST 등록 후 새로 고침**<br>
 <img src="./images/post등록 후 새로고침.png"><br>
 
 - **웹 브라우저의 새로고침은 마지막에 서버에 전송한 데이터를 다시 전송한다. (마지막에 했던 행위를 다시 하는 것)**
