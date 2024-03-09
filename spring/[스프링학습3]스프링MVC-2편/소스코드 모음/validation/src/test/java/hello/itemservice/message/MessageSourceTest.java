@@ -1,5 +1,6 @@
 package hello.itemservice.message;
 
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -15,6 +16,13 @@ public class MessageSourceTest {
 
     @Autowired
     MessageSource ms;
+
+    @BeforeAll
+    static void modifyLocale() {
+        System.out.println(Locale.getDefault());
+        Locale.setDefault(Locale.KOREA);
+        System.out.println(Locale.getDefault());
+    }
 
     @Test
     void helloMessage() {

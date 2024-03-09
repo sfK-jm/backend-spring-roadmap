@@ -3605,7 +3605,209 @@ public FieldError(String objectName, String field, @Nullalbe Object rejectedValu
 
 ### 오류 코드와 메시지 처리1
 
+#### 목표
+
+오류 메시지를 체계적으로 다루어보자
+
+#### FieldError 생성자
+
+`FieldError`는 두 가지 생성자를 제공한다.
+```java
+public FieldError(String objectName, String field, String defaultMessage);
+public FieldError(String objectName, String field, @Nullable Objcet rejectedValue, boolean bindingFailure, @Nullabel String[] codes, @Nullable Object[] arguments, @Nullable String defaultMessage)
+```
+
+파라미터 목록
+- `objectName`: 오류가 발생한 객체이름
+- `field`: 오류 필드
+- `rejectedValue`: 사용자가 입력한 값(거절된 값)
+- `bindingFailure`: 타입 오류 같은 바인딩 실패인지, 검증 실패인지 구분 값
+- `coeds`: 메시지 코드
+- `arguments`: 메시지에서 사용하는 인자
+- `defaultMessage`: 기본 오류 메시지
+
+`FieldError`, `ObjectError`의 생성자는 `codes`, `arguments`를 제공한다. 이것은 오류 발생시 오류 코드로 메시지를 찾기 위해 사용된다.
+
+#### errors 메시지 파일 생성
+`messages.properties`를 사용해도 되지만, 오류 메시지를 구분하기 쉽게 `errors.properties`라는 별도의 파일로 관리해보자.
+
+먼저 스프링 부트가 해당 메시지 파일을 인식할 수 있게 다음 설정을 추가한다. 이렇게 하면 `messages.propertiy`, `errors.proerties`두 파일을 모두 인식한다. (생략하면 `messages.properties`를 기본으로 인식한다.)
+
+#### 스프링 부트 메시지 설정 추가
+`application.properties`<br>
+`spring.messages.basename=messages,errors`
+
+`src/main/resources/errors.properties`<br>
+```
+required.item.itemName=상품 이름은 필수입니다.
+range.item.price=가격은 {0} ~ {1} 까지 허용합니다.
+max.item.quantity=수량은 최대 {0} 까지 허용합니다.
+totalPriceMin=가격 * 수량의 합은 {0}원 이상이어야 합니다. 현재 값 = {1}
+```
+
+> [!TIP]
+> `errors_en.properties`파일을 생성하면 오류 메시지도 국제화 처리를 할 수 있다.
+
+이제 `errors`에 등록한 메시지를 사용하도록 코드를 변경해보자.
+
+**ValidationItemControllerV2 - addItemV3()추가**<br>
+```java
+@PostMapping("/add")
+public String addItemV3(@ModelAttribute Item item, BindingResult bindingResult,
+                        RedirectAttributes redirectAttributes) {
+
+    if (!StringUtils.hasText(item.getItemName())) {
+        bindingResult.addError(new FieldError("item", "itemName",
+                item.getItemName(), false, new String[]{"required.item.itemName"}, null, null));
+    }
+
+    if (item.getPrice() == null || item.getPrice() < 1000 || item.getPrice() > 1000000) {
+        bindingResult.addError(new FieldError("item", "price",
+                item.getPrice(), false, new String[]{"range.item.price"}, new Object[]{1000, 1000000}, null));
+    }
+
+    if (item.getQuantity() == null || item.getQuantity() > 10000) {
+        bindingResult.addError(new FieldError("item", "quantity",
+                item.getQuantity(), false, new String[]{"max.item.quantity"}, new Object[]{9999}, null));
+    }
+
+    // 특정 필드 예외가 아닌 전체 예외
+    if (item.getPrice() != null && item.getQuantity() != null) {
+        int resultPrice = item.getPrice() * item.getQuantity();
+        if (resultPrice < 10000) {
+            bindingResult.addError(new ObjectError("item", new String[]{"totalPriceMin"},
+                    new Object[]{10000, resultPrice}, null));
+        }
+    }
+
+    if (bindingResult.hasErrors()) {
+        log.info("errors={}", bindingResult);
+        return "validation/v2/addForm";
+    }
+
+    // 성공 로직
+    Item savedItem = itemRepository.save(item);
+    redirectAttributes.addAttribute("itemId", savedItem.getId());
+    redirectAttributes.addAttribute("status", true);
+    return "redirect:/validation/v2/items/{itemId}";
+}
+```
+
+**코드 변경**<br>
+- `addItemV2()`의 `@PostMapping`부분 주석 처리
+
+``` java
+// range.item.price=가격은 {0} ~ {1} 까지 허용합니다.
+new FieldError("item", "price", item.getPrice(), false, new String[]{"range.item.price"}, new Object[]{1000, 1000000})
+```
+- `codes`: `required.item.itemName`을 사용해서 메시지 코드를 지정한다. 메시지 코드는 하나가 아니라 배여로 여러 값을 전달할 수 있는데, 순서대로 매칭해서 처음 매칭되는 메시지가 사용된다.
+- `arguments`: `Object[]{1000, 1000000}`를 사용해서 코드의 `{0}`, `{1}`로 치환한 값을 전달한다.
+
+#### 실행
+실행해보면 메시지, 국제화에서 학습한 `MessageSource`를 찾아서 메시지를 조회하는 것을 확인할 수 있다.
+
 ### 오류 코드와 메시지 처리2
+
+#### 목표
+- `FieldError`, `ObjectError`는 다루기 너무 번거롭다.
+- 오류 코드도 좀 더 자동화 할 수 있지 않을까> 예) `item.itemNmae`처럼?
+
+컨트롤러에서 `BindingResult`는 검증해야 할 객체인 `target`바로 다음에 온다. 따라서 `BindingResult`는 이미 본인이 검증해야 할 객체인 `target`을 알고 있다.
+
+다음을 컨트롤러에서 실행해보자<br>
+```java
+log.info("objectName={}", bindingResult.getObjectName());
+log.info("target={}", bindingResult.getTarget());
+```
+
+**출력결과**<br>
+```
+objectName=item //@ModelAttribute name
+target=Item(id=null, itemName=상품, price=100, quantity=1234)
+```
+
+#### rejectValue(), reject()
+`BindingResult`가 제공하는 `rejectValue()`, `reject()`를 사용하면 `FieldError`, `ObjectError`를 직접 생성하지 않고, 깔끔하게 검증 오류를 다룰 수 있다.
+
+`rejectValue()`, `reject()`를 사용해서 기존 코드를 단순화해보자.
+
+**ValidationItemControllerV2 - addItemV4()추가**<br>
+``` java
+@PostMapping("/add")
+public String addItemV4(@ModelAttribute Item item, BindingResult bindingResult,
+                        RedirectAttributes redirectAttributes) {
+
+    // `BindingResult`는 이미 본인이 검증해야 할 객체인 `target`을 알고 있다.
+    log.info("objectName={}", bindingResult.getObjectName());
+    log.info("target={}", bindingResult.getTarget());
+
+    if (!StringUtils.hasText(item.getItemName())) {
+        bindingResult.rejectValue("itemName", "required");
+    }
+
+    if (item.getPrice() == null || item.getPrice() < 1000 || item.getPrice() > 1000000) {
+        bindingResult.rejectValue("price", "range", new Object[]{1000, 1000000}, null);
+    }
+
+    if (item.getQuantity() == null || item.getQuantity() > 10000) {
+        bindingResult.rejectValue("quantity", "max", new Object[]{9999}, null);
+    }
+
+    // 특정 필드 예외가 아닌 전체 예외
+    if (item.getPrice() != null && item.getQuantity() != null) {
+        int resultPrice = item.getPrice() * item.getQuantity();
+        if (resultPrice < 10000) {
+            bindingResult.reject("totalPriceMin", new Object[]{10000, resultPrice}, null);
+        }
+    }
+
+    if (bindingResult.hasErrors()) {
+        log.info("errors={}", bindingResult);
+        return "validation/v2/addForm";
+    }
+
+    // 성공 로직
+    Item savedItem = itemRepository.save(item);
+    redirectAttributes.addAttribute("itemId", savedItem.getId());
+    redirectAttributes.addAttribute("status", true);
+    return "redirect:/validation/v2/items/{itemId}";
+}
+```
+
+**코드 변경**<br>
+- `addItemV3()`의 `@PostMapping`부분 주석 처리
+
+**실행**<br>
+오류 메시지가 정상 출력된다. 그런데 `errors.properties`에 있는 코드를 직접 입력하지 않았는데 어떻게 된 것일까?
+
+**rejectValue()**<br>
+```java
+void rejectValue(@Nullable String field, String errorCode, @Nullable Object[] errorArgs, @Nullable String defaultMessage);
+```
+
+- `field`: 오류 필드명
+- `errorCode`: 오류 코드(이 오류 코드는 메세지에 등록된 코드가 아니다. 뒤에서 설명할 messageResolver를 위한 오류 코드이다.)
+- `errorArgs`: 오류 메시지에서 `{0}`을 치환하기 위한 값
+- `defaultMessage`: 오류 메시지를 찾을 수 없을 때 사용하는 기본 메시지
+
+```java
+bindingResult.rejectValue("price", "range", new Object[]{1000, 1000000}, null)
+```
+
+앞에서 `BindingResult`는 어떤 객체를 대상으로 검증하는지 target을 이미 알고 있다고 했다. 따라서 target(item)에 대한 정보는 없어도 된다. 오류 필드명은 동일하게 `price`를 사용했다.
+
+#### 축약된 오류 코드
+
+`FieldError()`를 직접 다룰 때는 오류 코드를 `range.item.price`와 같이 모두 입력했다. 그런데 `rejectValue()`를 사용하고 부터는 오류 코드를 `range`로 간단하게 입력했다. 그래도 오류 메시지를 잘 찾아서 출력한다. 무언가 규칙이 있는 것 처럼 보인다. 이 부분을 이해하려면 `MessageCodesResolver`를 이해해야 한다. 왜 이런식으로 오류 코드를 구성하는지 바로 다음에 자세히 알아보자.
+
+`errors.properties`<br>
+`range.item.price=가격은 {0} ~ {1}까지 허용합니다`
+
+**reject()**<br>
+```java
+void reject(String errorCode, @Nullable Object[] errorArgs, @Nullable String defaultMessage);
+```
+앞의 내용과 같다.
 
 ### 오류 코드와 메시지 처리3
 
