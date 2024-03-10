@@ -3823,7 +3823,7 @@ void reject(String errorCode, @Nullable Object[] errorArgs, @Nullable String def
 
 예를 들어서 `required`라고 오류 코드를 사용한다고 가정해보자.<br>
 다음과 같이 `required`라는 메시지만 있으면 이 메시지를 선택해서 사용하는 것이다.<br>
-`required: 필수 값 딥이다.`
+`required: 필수 값 입니다.`
 
 그런데 오류 메시지에 `required.item.itemName`와 같이 객체명과 필드명을 조합한 세밀한 메시지 코드가 있으면 이 메시지를 높은 우선순위로 사용하는 것이다.<br>
 ```properties
@@ -3836,10 +3836,106 @@ required: 필수 값 입니다.
 
 물론 이렇게 객체명과 필드명을 조합한 메시지가 있는지 우선 확인하고, 없으면 좀 더 범용적인 메시지를 선택하도록 추가 개발을 해야겠지만, 범용성 있게 잘 개발해두면, 메시지의 추가 만으로 매우 편리하게 오류 메시지를 관리할 수 있을 것이다.
 
-스프링은 `MessageCodesResolver`라는 것으로 이러한 기능을 지원한다.
+스프링은 `MessageCodesResolver`라는 것으로 이러한 기능을 지원한다. 
 
 ### 오류 코드와 메시지 처리4
 
+우선 테스트 코드로 **MessageCodesResolver**를 알아보자
+
+**MessageCodesReolverTest**<br>
+```java
+package hello.itemservice.validation;
+
+import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.springframework.validation.DefaultMessageCodesResolver;
+import org.springframework.validation.MessageCodesResolver;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+public class MessageCodesResolverTest {
+
+    MessageCodesResolver codesResolver = new DefaultMessageCodesResolver();
+
+    @Test
+    void messageCodesResolverObject() {
+        String[] messageCodes = codesResolver.resolveMessageCodes("required", "item");
+        for (String messageCode : messageCodes) {
+            System.out.println("messageCode = " + messageCode);
+        }
+        assertThat(messageCodes).containsExactly("required.item", "required");
+    }
+
+    @Test
+    void messageCodesResolverField() {
+        String[] messageCodes = codesResolver.resolveMessageCodes("required", "item", "itemName", String.class);
+        for (String messageCode : messageCodes) {
+            System.out.println("messageCode = " + messageCode);
+        }
+        assertThat(messageCodes).containsExactly(
+                "required.item.itemName",
+                "required.itemName",
+                "required.java.lang.String",
+                "required"
+        );
+    }
+}
+```
+
+**MessageCodesResolver**<br>
+- 검증 오류 코드로 메시지 코드들을 생성한다.
+- `MessageCodesResolver`인터페이스이고 `DefaultMessageCodesResolver`는 기본 구현체이다.
+- 주로 다음과 함께 사용 `ObjectError`, `FieldError`
+
+#### DefaultMessageCodesResolver의 기본 메시지 생성 규칙
+
+**객체 오류**<br>
+```
+객체 오류의 경우 다음 순서로 2가지 생성
+1: code + "." + object name
+2: code
+
+예) 오류 코드: required, object name: item
+1: required.item
+2: required
+```
+
+**필드 오류**<br>
+```
+필드 오류의 경우 다음 순서로 4가지 메시지 코드 생성
+1: code + "." + object name + "." + field
+2: code + "." + field
+3: code + "." + field type
+4: code
+
+예) 오류 코드: typeMismatch, object name "user", field "age", field type: int
+1: "typeMismatch.user.age"
+2: "typeMismatch.age"
+3: "typeMismatch.int"
+4: "typeMismatch"
+```
+
+**동작 방식**<br>
+- `rejectValue()`, `reject()`는 내부에서 `MessageCodesResolver`를 사용한다. 여기에서 메시지 코드들을 생성한다.
+- `FieldError`, `ObjectError`의 생성자를 보면, 오류 코드를 하나가 아니라 여러 오류 코드를 가질 수 있따. `MessageCodesResolver`를 통해서 생성된 순서대로 오류 코드를 보관한다.
+- 이 부분을 `BindingResult`의 로그를 통해서 확인해보자
+  - `codes [range.item.price, range.price, range.java.lang.Integer, range]`
+
+**FieldError** `rejectValue("itemName", "required")`<br>
+다음 4가지 오류 코드를 자동으로 생성
+- `required.item.itemName`
+- `required.itemName`
+- `required.java.lang.String`
+- `required`
+
+**ObjectError**`reject("totalPriceMin")`<br>
+다음 2가지 오류 코드를 자동으로 생성
+- `totalPriceMin.item`
+- `totalPriceMin`
+
+**오류 메시지 출력**<br>
+타임리프 화면을 렌더링 할 때 `th:errors`가 실행된다. 만약 이때 오류가 있다면 생성된 오류 메시지 코드를 순서대로 돌앙가면서 메시지를 찾는다. 그리고 없으면 디폴트 메시지를 출력한다.
+  
 ### 오류 코드와 메시지 처리5
 
 ### 오류 코드와 메시지 처리6
