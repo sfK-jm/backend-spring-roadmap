@@ -4755,6 +4755,83 @@ public String edit(@PathVariable Long itemId, @Validated @ModelAttribute Item it
 
 ### Bean Validation - 한계
 
+#### 수정시 검증 요구사항
+
+데이터를 등록할 때와 수정할 때는 요구사항이 다를 수 있따.
+
+**등록시 기존 요구 사항**<br>
+- 타입 검증
+  - 가격, 수량에 문자가 들어가면 검증 오류 처리
+- 필드 검증
+  - 상품명: 필드, 공백x
+  - 가격: 1000원 이상, 1백만원 이하
+  - 수량: 최대 9999
+- 특정 필드의 범위를 넘어서는 검증
+  - 가격 * 수량의 합은 10,000원 이상
+
+**수정시 요구사항**<br>
+- 등록시에는 `quantity`수량을 최대 9999까지 등록할 수 있지만 **수정시에는 수량을 무제한으로 변경**할 수 있다.
+- 등록시에는 `id`에 값이 없어도 되지만, **수정시에는 id 값이 필수**이다.
+
+**수정 요구사항 적용**<br>
+수정시에는 `Item`에서 `id`값이 필수이고, `quantity`도 무제한으로 적용할 수 있다.<br>
+```java
+package hello.itemservice.domain.item;
+
+import lombok.Data;
+import org.hibernate.validator.constraints.Range;
+
+import javax.validation.constraints.Max;
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotNull;
+
+@Data
+public class Item {
+
+    @NotNull
+    private Long id;
+
+    @NotBlank
+    private String itemName;
+
+    @NotNull
+    @Range(min = 1000, max = 1000000)
+    private Integer price;
+
+    @NotNull
+    // @Max(9999)
+    private Integer quantity;
+
+    public Item() {
+    }
+
+    public Item(String itemName, Integer price, Integer quantity) {
+        this.itemName = itemName;
+        this.price = price;
+        this.quantity = quantity;
+    }
+}
+```
+
+수정 요구사항을 적용하기 위해 다음을 적용했다.<br>
+`id`: `@NotNull`추가
+`quantity`: `@Max(9999)`제거
+
+> [!NOTE]
+> 현재 구조에서는 수정시 `item`의 `id`값은 항상 들어있도록 로직이 구성되어 있다. 그래서 검증하지 않아도 도니다고 생각할 수 있다. 그런데 HTTP 요청은 언제든지 악의적으로 변경해서 요청할 수 있으므로 서버에서 항상 검증해야 한다. 예를 들어서 HTTP요청을 변경해서 `item`의 `id`값을 삭제하고 요청할 수도 있다. 따라서 최정 검증은 서버에서 진행하는 것이 안전한다.
+
+**수정을 실행해보자**<br>
+정상 동작을 확인할 수 있다.
+
+**그런데 수정은 잘 동작하지만 등록에서 문제가 발생한다.**<br>
+등록시에는 `id`에 값도 없도, `quantity`수량 제한 최대 값은 9999도 적용되지 않는 문제가 발생한다.
+
+**등록시 화면이 넘어가지 않으면서 다음과 같은 오류를 볼 수 있다.**<br>
+`'id': rejected value [null];`<br>
+왜냐하면 등록시에 `id`에 값이 없다. 따라서 `@NotNull` `id`를 적용한 것 때문에 검증에 실패하고 다시 폼 화면으로 넘어온다. 결국 등록 자체도 불가능하고, 수량 제한도 걸지 못한다.
+
+결과적으로 `item`은 등록과 수정에서 검증 조건의 충돌이 발생하고, 등록과 수정은 같은 BeanValidation을 적용할 수 없다. 이 문제를 어떻게 해결할 수 있을까?
+
 ### Bean Validation - groups
 
 ### Form 전송 객체 분리 - 프로젝트 준비 V4
