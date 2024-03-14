@@ -4634,7 +4634,124 @@ public String addItem(@Validated @ModelAttribute Item item, BindingResult bindin
 }
 ```
 
+`@ScriptAssert`부분 제거
+
 ### Bean Validation - 수정에 적용
+
+상품 수정에도 빈 검증(Bean Validation)을 적용해보자
+
+**수정에도 검증 기능을 추가하자**<br>
+**ValidationItemControlerV3 - edit()변경**<br>
+```java
+@PostMapping("/{itemId}/edit")
+public String edit(@PathVariable Long itemId, @Validated @ModelAttribute Item item, BindingResult bindingResult) {
+
+    // 특정 필드 예외가 아닌 전체 예외
+    if (item.getPrice() != null && item.getQuantity() != null) {
+        int resultPrice = item.getPrice() * item.getQuantity();
+        if (resultPrice < 10000) {
+            bindingResult.reject("totalPriceMin", new Object[]{10000, resultPrice}, null);
+        }
+    }
+
+    if (bindingResult.hasErrors()) {
+        log.info("errors={}", bindingResult);
+        return "validation/v3/editForm";
+    }
+
+    //성공로직
+    itemRepository.update(itemId, item);
+    return "redirect:/validation/v3/items/{itemId}";
+}
+```
+
+- `edit()`: item모델 객체에 `@Validated`를 추가하자.
+- 검증 오류가 발생하면 `editForm`으로 이동하는 코드 추가
+
+`validation/v3/editForm.html` 변경<br>
+```html
+<!DOCTYPE HTML>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <link th:href="@{/css/bootstrap.min.css}"
+          href="../css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .container {
+            max-width: 560px;
+        }
+        .field-error {
+            border-color: #dc3545;
+            color: #Dc3545;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <div class="py-5 text-center">
+        <h2 th:text="#{page.updateItem}">상품 수정</h2>
+    </div>
+
+    <form action="item.html" th:action th:object="${item}" method="post">
+
+        <div th:if="${#fields.hasGlobalErrors()}">
+            <p class="field-error" th:each="err: ${#fields.globalDetailedErrors()}"
+               th:text="${err}">글로벌 오류 메시지</p>
+        </div>
+
+        <div>
+            <label for="id" th:text="#{label.item.id}">상품 ID</label>
+            <input type="text" id="id" th:field="*{id}" class="form-control" readonly>
+        </div>
+
+        <div>
+            <label for="itemName" th:text="#{label.item.itemName}">상품명</label>
+            <input type="text" id="itemName" th:field="*{itemName}"
+                   th:errorclass="field-error" class="form-control"
+                   placeholder="이름을 입력하세요">
+            <div class="field-error" th:errors="*{itemName}">상품명 오류</div>
+        </div>
+        <div>
+            <label for="price" th:text="#{label.item.price}">가격</label>
+            <input type="text" id="price" th:field="*{price}"
+                   th:errorclass="field-error" class="form-control"
+                   placeholder="가격을 입력하세요">
+            <div class="field-error" th:errors="*{price}">가격 오류</div>
+        </div>
+        <div>
+            <label for="quantity" th:text="#{label.item.quantity}">수량</label>
+            <input type="text" id="quantity" th:field="*{quantity}"
+                   th:errorclass="field-error" class="form-control"
+                   placeholder="수량을 입력하세요">
+            <div class="field-error"  th:errors="*{quantity}">수량 오류</div>
+        </div>
+
+        <hr class="my-4">
+
+        <div class="row">
+            <div class="col">
+                <button class="w-100 btn btn-primary btn-lg" type="submit" th:text="#{button.save}">저장</button>
+            </div>
+            <div class="col">
+                <button class="w-100 btn btn-secondary btn-lg"
+                        onclick="location.href='item.html'"
+                        th:onclick="|location.href='@{/validation/v3/items/{itemId}(itemId=${item.id})}'|"
+                        type="button" th:text="#{button.cancel}">취소</button>
+            </div>
+        </div>
+
+    </form>
+
+</div> <!-- /container -->
+</body>
+</html>
+```
+
+- `.field-error` css추가
+- 글로벌 오류 메시지
+- 상품명, 가격, 수량 필드에 검증 기능 추가
 
 ### Bean Validation - 한계
 
