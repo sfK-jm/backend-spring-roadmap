@@ -1,5 +1,6 @@
 package hello.login.web.session;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import javax.servlet.http.Cookie;
@@ -13,6 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * 세션 관리
  */
+@Slf4j
 @Component
 public class SessionManager {
 
@@ -32,6 +34,8 @@ public class SessionManager {
         //쿠키 생성
         Cookie mySessionCookie = new Cookie(SESSION_COOKIE_NAME, sessionId);
         response.addCookie(mySessionCookie);
+        log.info("session = {}", sessionId);
+        log.info("store = {}", sessionStore);
     }
 
     /**

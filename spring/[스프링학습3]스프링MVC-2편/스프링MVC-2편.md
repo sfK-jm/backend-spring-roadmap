@@ -6232,6 +6232,74 @@ class SessionManagerTest {
 간단하게 테스트를 진행해보자. 여기서는 `HttpServletRequest`, `HttpservletResponse` 객체를 직접 사용할 수 없기 때문에 테스트에서 비슷한 역할을 해주는 가짜 `MockHttpServletRequest`, `MockHttpServletResponse`를 사용했다.
 
 ### 로그인 처리하기 - 직접 만든 세션 적용
+지금까지 개발한 세션 관리 기능을 실제 웹 애플리케이션에 적용해보자.
+
+**LoginController - loginV2()**<br>
+```java
+@PostMapping("/login")
+public String loginV2(@Validated @ModelAttribute LoginForm form, BindingResult bindingResult,
+                      HttpServletResponse response) {
+    if (bindingResult.hasErrors()) {
+        return "login/loginForm";
+    }
+
+    Member loginMember = loginService.login(form.getLoginId(), form.getPassword());
+    log.info("login? {}", loginMember);
+
+    if (loginMember == null) {
+        bindingResult.reject("loginFail", "아이디 또는 비밀번호가 맞지 않습니다");
+        return "login/loginForm";
+    }
+
+    //로그인 성공 처리
+    //세션 관리자를 통해 세션을 생성하고, 회원 데이터 보관
+    sessionManager.createSession(loginMember, response);
+
+    return "redirect:/";
+}
+```
+
+- `private final SessionManager sessionManager;` 주입
+- `sessionManager.createSession(loginMember, response);`
+
+로그인 성공시 세션을 등록한다. 세션에 `loginMember`를 저장해두고, 쿠키도 함께 발행한다.
+
+**LoginController - logoutV2()**<br>
+```java
+@PostMapping("/logout")
+public String logoutV2(HttpServletRequest request) {
+    sessionManager.expire(request);
+    return "redirect:/";
+}
+```
+
+로그 아웃시 해당 세션의 정보를 제거한다.
+
+**HomeController - homeLoginV2()**<br>
+```java
+@GetMapping("/")
+public String homeLoginV2(HttpServletRequest request, Model model) {
+
+    //세션 관리자에 저장된 회원 정보 조회
+    Member member = (Member) sessionManager.getSession(request);
+    if (member == null) {
+        return "home";
+    }
+
+    //로그인
+    model.addAttribute("member", member);
+    return "loginHome";
+}
+```
+
+- `private final SessionManager sessionManager;` 주입
+
+세션 관리자에서 저장된 회원 정보를 조회한다. 마약 회원 정보가 없으면, 쿠키나 세션이 없는 것 이므로 로그인 되지 않은 것으로 처리한다.
+
+**정리**<br>
+이번에는 세션과 쿠키의 개념을 명확하게 이해하기 위해서 직접 만들어보았다. 사실 세션이라는 것이 뭔가 특별한 것이 아니라 단지 쿠키를 사용하는데, 서버에서 데이터를 유지하는 방법일 뿐이라는 것을 이해했을 것이다.<br>
+그런데 프로젝트마다 이러한 세션 개념을 직접 개발하는 것은 상당히 불편할 것이다. 그래서 서블릿도 세션 개념을 지원한다.<br>
+이제 직졉 만드는 세션 말고, 서블릿이 공식 지원하는 세션을 알아보자. 서블릿이 공식 지원하는 세션은 직접 만든 세션과 동작방시깅 거의 같다. 추가로 세션을 일정시간 사용하지 않으면 해당 세션을 삭제하는 기능을 제공한다.
 
 ### 로그인 처리하기 - 서블릿 HTTP 세션1
 
