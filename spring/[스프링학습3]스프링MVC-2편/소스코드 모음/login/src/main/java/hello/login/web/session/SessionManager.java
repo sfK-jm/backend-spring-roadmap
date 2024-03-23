@@ -24,6 +24,9 @@ public class SessionManager {
 
     /**
      * 세션 생성
+     * sessionId생성 (임의의 추정 불가능한 랜덤 값)
+     * 세션 저장소에 sessionId와 보관할 값 저장
+     * sessionId로 응답 쿠키를 생성해서 클라이언트에 전달 
      */
     public void createSession(Object value, HttpServletResponse response) {
 

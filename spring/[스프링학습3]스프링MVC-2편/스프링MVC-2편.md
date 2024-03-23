@@ -6417,6 +6417,58 @@ public String homeLoginV3(HttpServletRequest request, Model model) {
 
 ### 로그인 처리하기 - 서블릿 HTTP 세션2
 
+#### @SessionAttribute
+스프링은 세션을 더 편리하게 사용할 수 있도록 `@SessionAttribute`을 지원한다.
+
+이미 로그인 된 사용자를 찾을 때는 다음과 같ㅌ이 사요하면 된다. 참고로 이 기능은 세션을 생성하지 않는다.<br>
+`@SessionAttribute(name = "loginMember", required = false) Member loginMember`
+
+**HomeController - homeLoginV3Spring()**<br>
+```java
+@GetMapping("/")
+public String homeLoginV3Spring(
+    @SessionAttribute(name = SessionConst.LOGIN_MEMBER, required = false) Member loginMember,
+    Model model) {
+
+    //세션에 회원 데이터가 없으면 home
+    if (loginMember == null) {
+        return "home";
+    }
+
+    //세션이 유지되면 로그인으로 이동
+    model.addAttribute("member", loginMember);
+    return "loginHome";
+}
+```
+
+세션을 찾고, 세션에 들어있는 데이터를 찾는 번거로운 과정을 스프링이 한번에 편리하게 처리해주는 것을 확인할 수 있다.
+
+#### TrackingModes
+
+로그인을 처음 시도하면 URL이 다음과 같이 `jsessionid`를 포함하고 있는 것을 확인할 수 있다.<br>
+`http://localhost:8080/;jsessionid=F59911518B921DF62D09F0DF8F83F872`
+
+이것은 웹 브라우저가 쿠키를 지원하지 않을 때 쿠키 대신 URL을 통해서 세션을 유지하는 방법이다. 이 방법을 사용하렴녀 URL에 이 값을 계속 포함해서 전달해야 한다. 타임리프 같은 템플릿은 엔진을 통해서 링크를 걸면 `jessionId`를 URL에 자동으로 포함해준다. 서버에서 웹 브라우저가 쿠키를 지원하는지 하지 않는지 최초에는 판단하지 못하므로, 쿠키 값도 전달하고, URL에 `jsessionid`도 함께 전달한다.
+
+URL 전달 방식을 끄고 항상 쿠키를 통해서만 세션을 유지하고 싶으면 다음 옵션을 넣어주면 된다. 이렇게 하면 URL에 `jsessionId`가 노출되지 않는다.
+
+`application.properties`<br>
+`server.servlet.session.tracking-modes=cookie`
+
+> [!CAUTION]
+> jessionid가 url에 있을때 404 오류가 발생한다면!!!
+>
+> 스프링에서 최근 URL 매핑 전략이 변경 되었습니다. 따라서 다음과 같이 출력될 때 컨트롤러를 찾지 못하고 404 오류가 발생할 수 있습니다.<br>
+> `http://localhost:8080/;jsessionid=F59911518B921DF62D09F0DF8F83F872`
+>
+> 해결방안은 다음과 같습니다.<br>
+> 권장하는 방법은 `session.tracking-modes`를 사용하는 것입니다.<br>
+> `server.servlet.session.tracking-modes=cookie`
+>
+> 만약 URL에 jsessionid가 꼭 필요하더면 `application.properties`에 다음 옵션을 추가해주세요
+> `spring.mvc.pathmatch.matching-strategy=ant_path_matcher`
+
+
 ### 세션 정보와 타임아웃 설정
 
 
