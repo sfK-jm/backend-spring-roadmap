@@ -105,18 +105,6 @@ public class LoginController {
         return "redirect:/";
     }
 
-    //@PostMapping("/logout")
-    public String logout(HttpServletResponse response) {
-        expireCookie(response, "memberId");
-        return "redirect:/";
-    }
-
-    //@PostMapping("/logout")
-    public String logoutV2(HttpServletRequest request) {
-        sessionManager.expire(request);
-        return "redirect:/";
-    }
-
     @PostMapping("/login")
     public String loginV4(
             @Validated @ModelAttribute LoginForm form, BindingResult bindingResult,
@@ -144,6 +132,18 @@ public class LoginController {
 
         //redirectURL 적용
         return "redirect:" + redirectURL;
+    }
+
+    //@PostMapping("/logout")
+    public String logout(HttpServletResponse response) {
+        expireCookie(response, "memberId");
+        return "redirect:/";
+    }
+
+    //@PostMapping("/logout")
+    public String logoutV2(HttpServletRequest request) {
+        sessionManager.expire(request);
+        return "redirect:/";
     }
 
     @PostMapping("/logout")

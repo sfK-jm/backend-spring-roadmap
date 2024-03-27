@@ -87,7 +87,7 @@ public class HomeController {
         if (loginMember == null) {
             return "home";
         }
-        log.info("loginMembe={}", loginMember);
+        log.info("loginMember={}", loginMember);
 
         //세션이 유지되면 로그인으로 이동
         model.addAttribute("member", loginMember);
