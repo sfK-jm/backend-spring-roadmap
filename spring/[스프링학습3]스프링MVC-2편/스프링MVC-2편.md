@@ -7279,3 +7279,40 @@ public class WebConfig implements WebMvcConfigurer {
 
 실행해보면 결과는 동일하지만, 더 편리하게 로그인 회원 정보를 조회할 수 있다.<br>
 이렇게 `ArgumentResolver`를 활용하면 공통 작업이 필요할 때 컨트롤러를 더욱 편리하게 사용할 수 있다.
+
+## 예외 처리와 오류 페이지
+
+### 프로젝트 생성
+**스프링 부트 스타터 사이트로 이동해서 스프링 프로젝트 생성**
+
+- 프로젝트 선택
+  - project: Gradle Project
+  - Language: Java
+  - Spring Boot: 2.5.x
+- Project Metadata
+  - Group: hello
+  - Artifact: exception
+  - Name: exception
+  - Package name: **hello.exception**
+  - Packaging: Jar
+  - Java 11
+- Dependencies
+  - Spring Web
+  - Lombook
+  - Thymeleaf
+  - Validation
+
+
+### 서블릿 예외 처리 - 시작
+
+### 서블릿 예외 처리 - 오류 화면 제공
+
+### 서블릿 예외 처리 - 오류 페이지 작동 원리
+
+### 서블릿 예외 처리 - 필터
+
+### 서블릿 예외 처리 - 인터셉터
+
+### 스프링 부트 - 오류 페이지 1
+
+### 스프링 부트 - 오류 페이지 2
