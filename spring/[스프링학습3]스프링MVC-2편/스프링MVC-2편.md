@@ -8131,3 +8131,158 @@ server.error.include-binding-errors=never
 
 **정리**<br>
 스프링 부트가 기본으로 제공하는 오류 페이지를 활용하면 오류 페이지와 관련된 대부분의 문제는 손쉽게 해결할 수 있다.
+
+## API 예외 처리
+
+### API 예외 처리 - 시작
+
+**목표**<br>
+API 예외 처리는 어떻게 해야할까?
+
+HTML페이지의 경우 지금까지 설명했던 것 처럼 4xx, 5xx와 같은 오류 페이지만 있으면 대부분의 문제를 해결할 수 있다.<br>
+그런데 API의 경우에는 생각할 내용이 더 많다. 오류 페이지는 단순히 고객에게 오류 화면을 보여주고 끝이지만, API는 각 오류 상황에 맞는 오류 응답 스펙을 정한고, JSON으로 데이터를 내려주어야 한다.
+
+지금부터 API의 경우 어떻게 예외 처리를 하면 좋은지 알아보자.<br>
+API도 오류 페이지에서 설명했던 것 처럼 처음으로 돌아가서 서블릿 오류 페이지 방식을 사용해보자.
+
+**WebServerCustomizer 다시 동작**<br>
+```java
+package hello.exception;
+
+import org.springframework.boot.web.server.ConfigurableWebServerFactory;
+import org.springframework.boot.web.server.ErrorPage;
+import org.springframework.boot.web.server.WebServerFactoryCustomizer;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Component;
+
+@Component
+public class WebServerCustomizer implements
+        WebServerFactoryCustomizer<ConfigurableWebServerFactory> {
+
+    @Override
+    public void customize(ConfigurableWebServerFactory factory) {
+
+        ErrorPage errorPage404 = new ErrorPage(HttpStatus.NOT_FOUND, "/error-page/404");
+        ErrorPage errorPage500 = new ErrorPage(HttpStatus.INTERNAL_SERVER_ERROR, "/error-page/500");
+        ErrorPage errorPageEx = new ErrorPage(RuntimeException.class, "/error-page/500");
+
+        factory.addErrorPages(errorPage404, errorPage500, errorPageEx);
+    }
+}
+```
+`WebServerCustomizer`가 다시 사용되도록 하기 위해 `@Component`애노테이션에 있는 주석을 풀자<br>
+이제 WAS에 예외가 전달되거나, `response.sendError()`가 호출되면 위에 등록한 예외 페이지 경로가 호출된다.
+
+**ApiExceptionController - API 예외 컨트롤러**<br>
+```java
+package hello.exception.api;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RestController;
+
+@Slf4j
+@RestController
+public class ApiExceptionController {
+
+    @GetMapping("/api/member/{id}")
+    public MemberDto getMember(@PathVariable("id") String id) {
+
+        if (id.equals("ex")) {
+            throw new RuntimeException("잘못된 사용자");
+        }
+
+        return new MemberDto(id, "hello " + id);
+    }
+    
+    @Data
+    @AllArgsConstructor
+    static class MemberDto {
+        private String memberId;
+        private String name;
+    }
+}
+```
+
+단순히 회원을 조회하는 기능을 하나 만들었다. 예외 테스트를 위해 URL에 전달된 `id`의 값이 `ex`이면 예외가 발생하도록 코드를 심어두었다.
+
+**Postman으로 테스트**<br>
+HTTP Header에 `Accept`가 `application/json`인 것을 꼭 확인하자
+
+**정상 호출**<br>
+`http://localhost:8080/api/members/spring`<br>
+```json
+{
+    "memberId": "spring",
+    "name": "hello spring"
+}
+```
+
+**예외 발생 호출**<br>
+`http://localhost:8080/api/members/ex`<br>
+```html
+<!DOCTYPE HTML>
+<html>
+<head>
+</head>
+<body> 
+    ...
+</body>
+```
+
+API를 요청했는데, 정상의 경우 API로 JSON 형식으로 데이터가 정상 반환된다. 그런데 오류가 발생하면 우리가 미리 만들어둔 오류 페이지 HTML이 반환된다. 이것은 기대하는 바가 아니다. 클라이언트는 정상 요청이든, 오류 요청이든 JSON이 반환되기를 기대한다. 웹 브라우저가 아닌 이상 HTML을 직접 받아서 할 수 있는 것은 별로 없다.
+
+문제를 해결하려면 오류 페이지 컨트롤러도 JSON 응답을 할 수 있도록 수정해야 한다.
+
+**ErrorPageController - API 응답 추가**<br>
+```java
+@RequestMapping(value = "/error-page/500", produces = MediaType.APPLICATION_JSON_VALUE)
+public ResponseEntity<Map<String, Object>> errorPage500Api(HttpServletRequest request,
+                                                           HttpServletResponse response) {
+    log.info("API errorPage 500");
+
+    Map<String, Object> result = new HashMap<>();
+    Exception ex = (Exception) request.getAttribute(ERROR_EXCEPTION);
+
+    result.put("status", request.getAttribute(ERROR_STATUS_CODE));
+    result.put("message", ex.getMessage());
+
+    Integer statusCode = (Integer) request.getAttribute(RequestDispatcher.ERROR_STATUS_CODE);
+    return new ResponseEntity<>(result, HttpStatusCode.valueOf(statusCode));
+}
+```
+
+`produces = MediaType.APPLICATION_JSON_VALUE`의 뜻은 클라이언트가 요청하는 HTTP Header의 `Accept`의 값이 `application/json`일 때 해당 메서드가 호출된다는 것이다. 결국 클라이언트가 받고 싶은 미디어 타입이 json이면 이 컨트롤러의 메서드가 호출된다.
+
+응답 데이터를 위해서 `Map`을 만들고 `status`, `message`키에 값을 할당했다. Jackson 라이브러리는 `Map`을 JSON구조로 변환할 수 있다.<br>
+`ResponseEntity`를 사용해서 응답하기 때문에 메시지 컨버터가 동작하면서 클라이언트에 JSON이 반환된다.
+
+포스트맨을 통해서 다시 테스트 해보자<br>
+HTTP Header에 `Accept`가 `application/json`인 것을 꼭 확인해보자
+
+`http://localhost:8080/api/members/ex`<br>
+```json
+{
+    "message": "잘못된 사용자",
+    "status": 500
+}
+```
+
+HTTP Header에 `Accept`가 `application/json`이 아니면, 기존 오류 응답인 HTML 응답이 출력되는 것을 확인할 수 있다.
+
+### API 예외 처리 - 스프링 부트 기본 오류 처리
+
+### API 예외 처리 - HandlerExceptionResolver 시작
+
+### API 예외 처리 - HandlerExceptionResolver 활용
+
+### API 예외 처리 - 스프링이 제공하는 ExceptionResolver1
+
+### API 예외 처리 - 스프링이 제공하는 ExceptionResolver2
+
+### API 예외 처리 - @ExceptionHandler
+
+### API 예외 처리 - @ControllerAdvice
