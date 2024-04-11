@@ -25,3 +25,4 @@
 - [소스코드 3](./spring/[스프링학습3]스프링MVC-2편/소스코드%20모음/message/)
 - [소스코드 4](./spring/[스프링학습3]스프링MVC-2편/소스코드%20모음/validation/)
 - [소스코드 5 (exception)](./spring/[스프링학습3]스프링MVC-2편/소스코드%20모음/exception/)
+- [소스코드 6 (typeconverter)](./spring/[스프링학습3]스프링MVC-2편/소스코드%20모음/typeconverter/) 
