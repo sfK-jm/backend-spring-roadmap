@@ -10882,3 +10882,72 @@ public class ItemController {
 - `@GetMapping("/items/{id}")`: 상품을 보여준다.
 - `@GetMapping("/images/{filename}")`: `<img>`태그로 이미지를 조회할 때 사용한다.<br>`UrlResource`로 이미지 파일을 읽어서 `@ResponseBody`로 이미지 바이너리를 반환한다.
 - `@GetMapping("/attach/{itemId}")`: 파일을 다운로드 할 때 실행한다. 예제를 더 단순화 할 수 있지만, 파일 다운로드시 권한 체크 같은 복잡한 상황까지 가정한다 생각하고 이미지 `id`를 요청하도록 했다. 파일 다운로드시에는 고객이 업로드한 파일 이름으로 다운로드 하는게 좋다. 이때는 `Content-Disposition`헤더에 `attachment; filename="업로드 파일명"`값을 주면 된다.
+
+**등록 폼 뷰**<br>
+`resources/templates/item-form.html`<br>
+```html
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+
+<div class="container">
+
+    <div class="py-5 text-center">
+        <h2>상품 등록</h2>
+    </div>
+
+    <form th:action method="post" enctype="multipart/form-data">
+        <ul>
+            <li>상품명 <input type="text" name="itemName"></li>
+            <li>첨부파일<input type="file" name="attachFile"></li>
+            <li>이미지 파일들 <input type="file" multiple="multiple" name="imageFiles"></li>
+        </ul>
+        <input type="submit">
+
+    </form>
+</div>
+
+</body>
+</html>
+```
+
+다중 파일 업로드를 하려면 `multiple="multiple"` 옵션을 주면 된다.<br>
+`ItemForm`의 다음 코드에서 여러 이미지 파일을 받을 수 있다.<br>
+`private List<MultipartFile> imageFiles;`
+
+**조회 뷰**<br>
+`resources/templates/item-view.html`
+```html
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+
+<div class="container">
+  <div class="py-5 text-center">
+    <h2>상품 조회</h2>
+  </div>
+
+  상품명: <span th:text="${item.itemName}">상품명</span><br/>
+  첨부파일: <a th:if="${item.attachFile}" th:href="|/attach/${item.id}|"
+           th:text="${item.getAttachFile().getUploadFileName()}" /><br/>
+  <img th:each="imageFile : ${item.imageFiles}" th:src="|/images/${imageFile.getStroeFilName()}|" with="300"
+       height="300"/>
+</div>
+
+</body>
+</html>
+```
+
+첨부 파일은 링크로 걸어두고, 이미지는 `<img>`태그를 반복해서 출력한다.
+
+**실행**<br>
+
+실행해보면 하나의 첨부파일을 다운로드 업로드 하고, 여러 이미지 파일을 한번에 업로드 할 수 있다.

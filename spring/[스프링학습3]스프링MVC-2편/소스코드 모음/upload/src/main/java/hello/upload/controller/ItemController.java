@@ -1,7 +1,6 @@
 package hello.upload.controller;
 
 import hello.upload.domain.Item;
-import hello.upload.domain.ItemForm;
 import hello.upload.domain.ItemRepository;
 import hello.upload.domain.UploadFile;
 import hello.upload.file.FileStore;
@@ -45,7 +44,7 @@ public class ItemController {
         Item item = new Item();
         item.setItemName(form.getItemName());
         item.setAttachFile(attachFile);
-        item.setImageFile(storeImageFiles);
+        item.setImageFiles(storeImageFiles);
         itemRepository.save(item);
 
         redirectAttributes.addAttribute("itemId", item.getId());

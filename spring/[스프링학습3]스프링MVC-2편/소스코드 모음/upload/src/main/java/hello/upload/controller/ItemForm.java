@@ -1,4 +1,4 @@
-package hello.upload.domain;
+package hello.upload.controller;
 
 import lombok.Data;
 import org.springframework.web.multipart.MultipartFile;
