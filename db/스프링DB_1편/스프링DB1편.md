@@ -50,7 +50,8 @@ insert into member(member_id, money) values ('hi2', 20000);
 
 이제 본격적으로 JDBC에 대해서 알아보자
 
-**JDBC 등장 이유**<br>
+### JDBC 등장 이유
+
 애플리케이션을 개발할 때 중요한 데이터는 데이터베이스에 보관한다. 보통은 아래와 같은 구조로 되어있다.
 
 **클라이언트, 애플리케이션 서버, DB**<br>
@@ -72,7 +73,7 @@ insert into member(member_id, money) values ('hi2', 20000);
 
 <img src="./imgs/JDBC이해/애플리케이션_서버와_DB-DB_변경.png"><br>
 
-- 문제는 각ㄱ각의 데이터베이스마다 1) 커넥션을 연결하는 방법, 2) SQL을 전달하는 방법, 그리고 3) 결과를 응답받는 방법이 모두 다르다는 점이다. (참고로 관계형데이터베이스는 수십개가 있다.)
+- 문제는 각각의 데이터베이스마다 1) 커넥션을 연결하는 방법, 2) SQL을 전달하는 방법, 그리고 3) 결과를 응답받는 방법이 모두 다르다는 점이다. (참고로 관계형데이터베이스는 수십개가 있다.)
 - 여기에는 2가지 큰 문제가 있다.
   - 데이터베이스를 다른 종류의 데이터베이스로 변경하면 애플리케이션 서버에 개발된 데이터베이스 사용 코드도 함께 변경해야 한다.
   - 개발자가 각각의 데이터베이스마다 커넥션 연결, SQL 전달, 그리고 그 결과를 응답받는 방법을 새로 학습해야 한다.
@@ -153,6 +154,115 @@ JDBC는 1997년에 출시될 정도로 오래된 기술이고, 사용하는 방�
 > 이런 기술들도 내부에서는 모두 JDBC를 사용한다. 따라서 JDBC를 직접 사용하지는 않더라도, JDBC가 어떻게 동작하는지 기본 원리를 알아두어야 한다. 그래야 해당 기술들을 더 깊이있게 이해할 수 있고, 무엇보다 문제가 발생했을 때 근본적인 문제를 찾아서 해결할 수 있다. **JDBC는 자바 개발자라면 꼭 알아두어야 하는 필수 기본 기술**이다.
 
 ## 데이터베이스 연결
+
+애플리케이션과 데이터베이스를 연결해두자.<br>
+(주의) H2 데이터베이스 서버를 먼저 실행해두자.
+
+코드로 바로 적용해보자
+
+**ConnectionConst생성**<br>
+`src/main/java/hello/jdbc/connection/ConnectionConst.java`<br>
+```java
+package hello.jdbc.connection;
+
+public class ConnectionConst {
+    public static final String URL = "jdbc:h2:tcp://localhost/~/test";
+    public static final String USERNAME = "sa";
+    public static final String PASSWORD = "";
+
+}
+```
+
+- 데이터 베이스에 접속하는데 필요한 기본 정보를 편리하게 사용할 수 있도록 상수로 만들었다.
+- 이제 JDBC를 사용해서 실제 데이터베이스에 연결하는 코드를 작성해보자.
+
+**DBConnectionUtil생성**<br>
+`src/main/java/hello/jdbc/connection/DBConnectionUtil.java`<br>
+```java
+package hello.jdbc.connection;
+
+import lombok.extern.slf4j.Slf4j;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+
+@Slf4j
+public class DBConnectionUtil {
+
+    public static Connection getConnection() {
+        try {
+            Connection connection = DriverManager.getConnection(
+                    ConnectionConst.URL,
+                    ConnectionConst.USERNAME,
+                    ConnectionConst.PASSWORD);
+            log.info("get connection={}, class={}", connection, connection.getClass());
+
+            return connection;
+        } catch (SQLException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+}
+```
+- 데이터베이스에 연결하려면 JDBC가 제공하는 `DriverManager.getConnection(...)`를 사용하면 된다. 이렇게 하면 라이브러리에 있는 데이터베이스 드라이버를 찾아서 해당 드라이버가 제공하는 커넥션을 반환해준다. 여기서는 H2 데이터베이스 드라이버가 작동해서 실제 데이터베이스와 커넥션을 맺고 그 결과를 반환해준다.
+- (참고) External Libraries > h2database 라이브러리 > Driver 클래스 참고 (org.h2.Driver)
+
+간단한 학습용 데스트 코드를 만들어서 실행해보자.
+
+**DBConnectionUtilTest 생성**: test/java/hello/jdbc 패키지 내부에 connetcion 패키지를 생성하고, 그 내부에 DBConnectionUtilTest클래스를 생성하자
+
+```java
+package hello.jdbc.connection;
+
+import lombok.extern.slf4j.Slf4j;
+import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import java.sql.Connection;
+
+@Slf4j
+class DBConnectionUtilTest {
+
+    @Test
+    void connection() {
+        Connection connection = DBConnectionUtil.getConnection();
+        Assertions.assertThat(connection).isNotNull();
+    }
+
+}
+```
+
+실행 결과를 보면 `class=class org.h2.jdbc.JdbcConnection` 부분을 확인할 수 있다. <br>이것이 바로 H2데이터베이스 드라이버가 제공하는 H2 전용 커넥션이다. 물론 이 커넥션은 JDBC 표준 커넥션 인터페이스인 `java.sql.Connection`인터페이스를 구현하고 있다.
+
+그러면 도대체 H2 데이터베이스 드라이버를 어떻게 찾는걸까?
+
+**JDBC DriverManager 연결 이해**<br>
+지금까지 코드로 확인해 본 과정을 좀 더 자세히 알아보자.
+
+**JDBC 커넥션 인터페이스와 구현**<br>
+<img src="./imgs/JDBC이해/JDBC_커넥션_인터페이스와_구현.png"><br>
+
+- JDBC는 `java.sql.Connection`표준 커넥션 인터페이스를 정의한다.
+- H2 데이터베이스 드라이버는 JDBC Connection 인터페이스를 구현한, `org.h2.jdbc.JdbcConnection`이라는 구현체를 제공한다.
+
+**DriverManager 커넥션 요청 흐름**<br>
+<img src="./imgs/JDBC이해/DriverManager_커넥션_요청_흐름.png"><br>
+
+JDBC가 제공하는 `DriverManager`는 라이브러리에 등록된 DB 드라이버들을 관리하고, 커넥션을 획득하는 기능을 제공한다.
+1. 애플리케이션 로직에서 커넥션이 필요하면 `DriverManager.getConnection()`을 호출한다
+2. `DriverManager`는 라이브러리에 등록된 드라이버 목록을 자동으로 인식한다. 이 드라이버들에게 순서대로 다음 정보를 넘겨서 커넥션을 획득할 수 있는지 확인한다.
+   - URL: 예) `jdbc:h2:tcp://localhost/~/test`
+   - 이름, 비밀번호 등 접속에 필요한 추가 정보
+   - 여기서 각각의 드라이버는 URL정보를 체크해서 본인이 처리할 수 있는 요청인지 확인한다. 얘를 들어서 URL이 `jdbc:h2`로 시작하면 이것은 h2 데이터베이스에 접근하기 위한 규칙이다. 따라서 H2 드라이버는 본인이 처리할 수 있으므로 실제 데이터베이스에 연결해서 커넥션을 획득하고 이 커넥션을 클라이언트에 반환한다. 반면에 URL이 `jdbc:h2`로 시작햇는데 MySQL 드라이버가 먼저 실행되면 이 경우 본인이 처리할 수 없다는 결과를 반환하게 되고, 다음 드라이버에게 순서가 넘어간다.
+3. 이렇게 찾은 커넥션 구현체가 클라이언트에 반환된다.
+   - 우리는 H2 데이터베이스 드라이버만 라이브러리에 등록했기 때문에 H2 드라이버가 제공하는 H2 커넥션을 제공받는다. 물론 H2 커넥션은 JDBC가 제공하는 `java.sql.Connection` 인터페이스를 구현하고 있다.
+
+> [!TIP]
+> H2 데이터베이스 드라이버 라이브러리<br>
+> 
+> runtimeOnly 'com.h2database:h2
+
 ## JDBC 개발 - 등록
 ## JDBC 개발 - 조회
 ## JDBC 개발 - 수정, 삭제
