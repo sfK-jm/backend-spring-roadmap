@@ -592,3 +592,73 @@ class MemberRepositoryV0Test {
 - `isEqualTo()`: `findMember.euals(member)`를 비교한다. 결과가 참인 이유는 롬복의 `@Data`는 해당 객체의 모든 필드를 사용하도록 `equals()`를 오버라이딩 하기 때문이다. (member == findMember와 같이 인스턴스 비교를 하게되면 서로 다르기 때문에 false이다.)
 
 ## JDBC 개발 - 수정, 삭제
+
+수정과 삭제는 등록과 비슷하다. 등록, 수정, 삭제처럼 데이터를 변경하는 쿼리는 `executeUpdate()`를 사용하면 된다.
+
+### MemberRepositoryV0 - 회원 수정 추가(update)
+
+```java
+public void update(String memberId, int money) throws SQLException {
+    String sql = "update member set money=? where member_id=?";
+
+    Connection con = null;
+    PreparedStatement pstmt = null;
+
+    try {
+        con = getConnection();
+        pstmt = con.prepareStatement(sql);
+        pstmt.setInt(1, money);
+        pstmt.setString(2, memberId);
+
+        int resultSize = pstmt.executeUpdate();
+        log.info("resultSize={}", resultSize);
+    } catch (SQLException e) {
+        log.error("error", e);
+        throw e;
+    } finally {
+        close(con, pstmt, null);
+    }
+}
+```
+
+`executeUpdate()`는 쿼리를 실행하고 영향받은 row수를 반환한다. 여기서는 하나의 데이터만 변경하기 때문에 결과로 1이 반환된다. 만약 회원이 100명이고, 모든 회원 데이터를 한번에 수정하는 update sql을 실행하면 결과는 100이 된다.
+
+### 회원 수정 테스트
+
+```java
+//update(money : 10000 -> 20000)
+repository.update(member.getMemberId(), 20000);
+Member updatedMember = repository.findById(member.getMemberId());
+assertThat(updatedMember.getMoney()).isEqualTo(20000);
+```
+
+### MemberRepositoryV0 - 회원 삭제 추가(delete)
+
+```java
+public void delete(String memberId) throws SQLException {
+    String sql = "delete from member where member_id=?";
+
+    Connection con = null;
+    PreparedStatement pstmt = null;
+
+    try {
+        con = getConnection();
+        pstmt = con.prepareStatement(sql);
+        pstmt.setString(1, memberId);
+        pstmt.executeUpdate();
+    } catch (SQLException e) {
+        log.error("db error", e);
+        throw e;
+    } finally {
+        close(con, pstmt, null);
+    }
+}
+```
+
+### 회원 삭제 테스트 코드
+
+```java
+repository.delete(member.getMemberId());
+Assertions.assertThatThrownBy(
+        () -> repository.findById(member.getMemberId())).isInstanceOf(NoSuchElementException.class);
+```
