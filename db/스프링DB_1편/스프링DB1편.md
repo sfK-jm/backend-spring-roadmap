@@ -73,7 +73,7 @@ insert into member(member_id, money) values ('hi2', 20000);
 
 <img src="./imgs/JDBC이해/애플리케이션_서버와_DB-DB_변경.png"><br>
 
-- 문제는 각각의 데이터베이스마다 1) 커넥션을 연결하는 방법, 2) SQL을 전달하는 방법, 그리고 3) 결과를 응답받는 방법이 모두 다르다는 점이다. (참고로 관계형데이터베이스는 수십개가 있다.)
+- 문제는 각각의 데이터베이스마다 1) 커넥션을 연결하는 방법, 2) SQL을 전달하는 방법, 그리고 3) 결과를 응답받는 방법이 모두 다르다는 점이다. (참고로 관계형 데이터베이스는 수십개가 있다.)
 - 여기에는 2가지 큰 문제가 있다.
   - 데이터베이스를 다른 종류의 데이터베이스로 변경하면 애플리케이션 서버에 개발된 데이터베이스 사용 코드도 함께 변경해야 한다.
   - 개발자가 각각의 데이터베이스마다 커넥션 연결, SQL 전달, 그리고 그 결과를 응답받는 방법을 새로 학습해야 한다.
@@ -264,5 +264,331 @@ JDBC가 제공하는 `DriverManager`는 라이브러리에 등록된 DB 드라�
 > runtimeOnly 'com.h2database:h2
 
 ## JDBC 개발 - 등록
+
+이제 본격적으로 JDBC를 사용해서 애플리케이션을 개발해보자<br>
+여기서는 JDBC를 사용해서 회원(`Member`)데이터를 데이터베이스에 관리하는 기능을 개발해보자.
+
+코드로 적용해보자.
+
+**Member 생성**<br>
+`src/main/java/hello/jdbc/domain`<br>
+```java
+package hello.jdbc.domain;
+
+import lombok.Data;
+
+@Data
+public class Member {
+
+    private String memberId;
+    private int money;
+
+    public Member() {
+    }
+
+    public Member(String memberId, int money) {
+        this.memberId = memberId;
+        this.money = money;
+    }
+}
+
+```
+
+회원의 ID와 해당 회원이 소지한 금액을 표현하는 단순한 클래스이다. 앞서 만들어둔 `member`테이블에 데이터를 저장하고 조회할 때 사용한다.
+
+가장 먼저, JDBC를 사용해서 이렇게 만든 회원 객체를 데이터베이스에 저장해보자.
+
+**MemberRepositoryV0생성 - 회원 등록**<br>
+`src/main/java/hello/jdbc/repository/MemberRepositoryV0`<br>
+
+```java
+package hello.jdbc.repository;
+
+import hello.jdbc.connection.DBConnectionUtil;
+import hello.jdbc.domain.Member;
+import lombok.extern.slf4j.Slf4j;
+
+import java.sql.*;
+
+/**
+ * JDBC - DriverManager 사용
+ */
+@Slf4j
+public class MemberRepositoryV0 {
+
+    public Member save(Member member) throws SQLException {
+        String sql = "insert into member(member_id, money)values (?, ?)";
+
+        Connection con = null;
+        PreparedStatement pstmt = null;
+
+        try{
+            con = getConnection();
+            pstmt = con.prepareStatement(sql);
+            pstmt.setString(1, member.getMemberId());
+            pstmt.setInt(2, member.getMoney());
+            pstmt.executeUpdate();
+            return member;
+        } catch (SQLException e) {
+            log.error("db error");
+            throw e;
+        } finally {
+            close(con, pstmt, null);
+
+        }
+
+    }
+
+    private void close(Connection con, Statement stmt, ResultSet rs) {
+
+        if (rs != null) {
+            try {
+                rs.close();
+            } catch (SQLException e) {
+                log.info("error", e);
+            }
+        }
+
+        if (stmt != null) {
+            try {
+                stmt.close();
+            } catch (SQLException e) {
+                log.info("error", e);
+            }
+        }
+    }
+
+    private Connection getConnection() {
+        return DBConnectionUtil.getConnection();
+    }
+}
+```
+
+### 코드 분석
+
+**커넥션 획득**<br>
+`getConnection()`: 이전에 만들어둔 `DBConnectionUtil`를 통해서 데이터베이스 커넥션을 획득한다.
+
+**save() - SQL 전달**<br>
+- `sql`: 데이터베이스에 전달한 SQL을 정의한다. 여기서는 데이터를 등록해야 하므로 `insert sql`을 정의했다.
+- `con.prepareStatement(sql)`: 데이터베이스에 전달한 SQL과 파라미터로 전달할 데이터들을 준비한다.
+  - `sql`: `insert into member(member_id, money) values(? , ?)"`
+  - `pstmt.setString(1, member.getMemberId())`: SQL의 첫번째 `?`에 값을 지정한다. 문자이므로 `setString`을 사용한다.
+  - `pstmt.setInt(2, member.getMoney())`: SQL의 두번째 `?`에 값을 저정한다. `Int`형 숫자이므로 `setInt`를 지정한다.
+- `pstmt.executeUpdate()`: `Statement`를 통해 준비된 SQL을 커넥션을 통해 실제 데이터베이스에 전달한다. 참고로 `executeUpdate()`은 `int`를 반환하는데, 영향받은 DB row수를 반환한다. 여기서는 하나의 row를 등록했으므로 1을 반환한다.
+  - 참고) executeUpdate()<br> 
+    ```java
+        int executeUpdate() throws SQLException; 
+    ```
+
+**리소스 정리**<br>
+- 쿼리를 실행하고 나면 리소스를 정의해야 한다. 여기서는 `Connection`, `PreparedStatement`를 사용했다.
+- 리소스를 정리할 때는 항상 역순으로 해야한다. `Connection`을 먼저 획득하고 `Connection`을 통해 `PreparedStatement`를 만들었기 때문에, 리소스를 반환할때는 `PreparedStatement`를 먼저 종료하고, 그 다음에 `Connection`을 종료하면 된다.<br> (참고로 여기서 사용하지 않은 `ResultSet`은 결과를 조회할 때 사용한다. 조금 뒤에 조회 부분에서 알아보자.)
+
+> [!WARNING]
+> 리소스 정리는 꼭! 해주어야 한다. 따라서 예외가 발생하든, 하지 않든 항상 수행되어야 하므로 `finally` 구문에 주의해서 작성해야 한다. 만약 이 부분을 놓치게 되면 커넥션이 끊어지지 않고 계속 유지되는 문제가 발생할 수 있다. 이런 것을 리소스 누수라고 하는데, 걸과적으로 커넥션 부족으로 장애가 발행할 수 있다.
+
+
+> [!TIP]
+> `PreparedStatment`는 `Statement`의 자식타입인데, `?`를 통한 파라미터 바인딩을 가능하게 해준다. (참고로 SQL injection 공격을 예방하려면 `PreparedStatment`를 통한 파라미터 바인딩 방식을 사용해야 한다.)
+
+### 테스트 코드
+
+```java
+package hello.jdbc.repository;
+
+import hello.jdbc.domain.Member;
+import org.junit.jupiter.api.Test;
+
+import java.sql.*;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class MemberRepositoryV0Test {
+
+    MemberRepositoryV0 repository = new MemberRepositoryV0();
+
+    @Test
+    void crud() throws SQLException {
+        Member member = new Member("memberV0", 10000);
+        repository.save(member);
+    }
+}
+```
+
+정상적으로 실행이 되었고, 데이터베이스에서 `select * from member` 쿼리를 실행하면 데이터가 저장된 것을 확인할 수 있다.<br>
+참고로 이 테스트는 반복해서 실행하면 PK 중복 오류가 발생한다. 이 경우 `delete from member`쿼리로 데이터를 삭제한 다음에 다시 실행하자.
+
 ## JDBC 개발 - 조회
+
+이번에는 JDBC를 통해 이전에 저장한 데이터를 조회하는 기능을 개발해보자.
+
+### MemberRepositoryV0 - 회원 조회 추가(findById)
+```java
+package hello.jdbc.repository;
+
+import hello.jdbc.connection.DBConnectionUtil;
+import hello.jdbc.domain.Member;
+import lombok.extern.slf4j.Slf4j;
+
+import java.sql.*;
+import java.util.NoSuchElementException;
+
+/**
+ * JDBC - DriverManager 사용
+ */
+@Slf4j
+public class MemberRepositoryV0 {
+
+    public Member save(Member member) throws SQLException {
+        String sql = "INSERT INTO member(member_id, money) VALUES (?,?)";
+
+        Connection con = null;
+        PreparedStatement pstmt = null;
+
+        try {
+            con = getConnection();
+            pstmt = con.prepareStatement(sql);
+            pstmt.setString(1,member.getMemberId());
+            pstmt.setInt(2,member.getMoney());
+            pstmt.executeUpdate();
+            return member;
+
+        }catch (SQLException e){
+            log.error("db error",e);
+            throw e;
+        }finally {
+            close(con,pstmt,null); //rs,stmt,con이 전부 닫혀야 하기 때문에
+        }
+    }
+
+    public Member findById(String memberId) throws SQLException {
+        String sql = "select * from member where member_id = ?";
+
+        Connection con = null;
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+
+        try {
+            con = getConnection();
+            pstmt = con.prepareStatement(sql);
+            pstmt.setString(1, memberId);
+
+            rs = pstmt.executeQuery();
+            if (rs.next()) {
+                Member member = new Member();
+                member.setMemberId(rs.getString("member_id"));
+                member.setMoney(rs.getInt("money"));
+                return member;
+            } else {
+                throw new NoSuchElementException("member not found memberId =" + memberId);
+            }
+        } catch (SQLException e) {
+            log.error("error", e);
+            throw e;
+        } finally {
+            close(con, pstmt, rs);
+        }
+    }
+
+    private void close(Connection con, Statement stmt, ResultSet rs) {
+        if(rs != null){
+            try {
+                rs.close();
+            } catch (SQLException e){
+                log.info("error",e);
+            }
+        }
+
+        if(stmt != null){
+            try {
+                stmt.close();
+            } catch (SQLException e) {
+                log.info("error" , e);
+            }
+        }
+        if(con != null){
+            try {
+                con.close();
+            } catch (SQLException e) {
+                log.info("error" , e);
+            }
+        }
+    }
+
+    private Connection getConnection(){
+        return DBConnectionUtil.getConnection();
+    }
+}
+```
+
+### 코드 분석
+
+**findById() - 쿼리 실행**<br>
+- `sql`: 데이터 조회를 위한 select SQL을 준비한다.
+- `rs = pstmt.executeQuery()`: 데이터를 변경할 때는 `executeUpdate()`를 사용하지만, 데이터를 조회할 때는 `executeQuery()`를 사용한다. `executeQuery()`는 결과를 `ResultSet`에 담아서 반환한다.
+
+**ResultSet**<br>
+- `ResultSet`은 다음과 같이 생긴 데이터 구조이다. 보통 select 쿼리의 결과가 순서대로 들어간다. (아래 ResultSet 결과 예시 참고)
+  - 예를 들어서 `select member_id, money`라고 지정하면 `member_id`, `money`라는 이름으로 데이터가 저장된다.(참고로 `select *`을 사용하면 테이블의 모든 칼럼을 다 지정한다.)
+- `ResultSet`내부에 있는 커서(`cursor`)를 이동해서 다음 데이터를 조회할 수 있다. (ResultSet은 내부에서ㅓ 커서라는 것이 있는데, 이것을 이동해서 다음 데이터를 조회할 수 있다.)
+- `rs.next()`: 이것을 호출하면, 커서가 다음으로 이동한다. 참고로 최초의 커서는 데이터를 가리키고 있지 않기 때문에 `rs.next()`를 최초 한번은 호출해야 데이터를 조회할 수 있다.
+  - `rs.next()`의 결과가 `true`면 커서의 이동 결과에 데이터가 있다는 뜻이다.
+  - `rs.next()`의 결과가 `false`면 더이상 커서가 가리키는 데이터가 없다는 뜻이다.
+- `rs.getString("member_id")`: 현재 커서가 가리키는 있는 위치의 `member_id`데이터를 `String`타입으로 반환한다.
+- `rs.getInt("money")`: 현재 커서가 가리키고 있는 위치의 `money` 데이터를 `int`타입으로 반환한다.
+
+**ResultSet 결과 예시**<br>
+<img src="./imgs/JDBC이해/ResultSet_결과_예시.png"><br>
+
+- 참고로 위 `ResultSet`의 결과 예시는 회원이 2명 조회디는 경우이다.
+  - `1-1`에서 `rs.next()`를 호출한다.
+  - `1-2`의 결과로 `cursor`가 다음으로 이동한다. 이 경우 `cursor`가 가리키는 데이터가 있으므로 `true`를 반환한다.
+  - `2-1`에서 `rs.next()`를 호출한다.
+  - `2-2`의 결과로 `cursor`가 다음으로 이동한다. 이 경우 `cursor`가 가리키는 데이터가 있으므로 `true`를 반환한다.
+  - `3-1`에서 `rs.next()`를 호출한다.
+  - `3-2`의 결과로 `cursor`가 다음으로 이동한다. 이 경우 `cursor`가 가리키는 데이터가 없으므로 `false`를 반환한다.
+  - (참고) 예제의 `findById()`에서는 회원 하나를 조회하는 것이 목적이다. (SQL을 보면 Pk인 member_id를 항상 지정하는 것을 확인할 수 있다.) 따라서 조회 결과가 항상 1건이므로 `while`대신에 `if`를 사용한다.
+
+### 테스트 코드
+
+```java
+package hello.jdbc.repository;
+
+import hello.jdbc.domain.Member;
+import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.Test;
+
+import java.sql.*;
+
+import static org.assertj.core.api.Assertions.*;
+
+@Slf4j
+class MemberRepositoryV0Test {
+
+    MemberRepositoryV0 repository = new MemberRepositoryV0();
+
+    @Test
+    void crud() throws SQLException {
+
+        //save
+        Member member = new Member("memberV0", 10000);
+        repository.save(member);
+
+        //findById
+        Member findMember = repository.findById(member.getMemberId());
+        log.info("findMember={}", findMember);
+        assertThat(findMember).isEqualTo(member);
+    }
+}
+```
+중복으로 실행할 경우 PK 중복 오류가 발생한다. `delete from member`을 이용하자.
+
+실행 결과 로그를 확인해보자.<br>
+`MemberRepositoryV0Test -- findMember=Member(memberId=memberV0, money=10000)`
+
+- 회원을 등록하고 그 결과를 바로 조회해서 확인해 보았다.
+- 참고로 실행 결과에 `member` 객체의 참조 값이 아니라 실제 데이터가 보이는 이유는 롬복의 `@Data`가 `toString()`을 적절히 오버라이딩해서 보여주기 때문이다.
+- `isEqualTo()`: `findMember.euals(member)`를 비교한다. 결과가 참인 이유는 롬복의 `@Data`는 해당 객체의 모든 필드를 사용하도록 `equals()`를 오버라이딩 하기 때문이다. (member == findMember와 같이 인스턴스 비교를 하게되면 서로 다르기 때문에 false이다.)
+
 ## JDBC 개발 - 수정, 삭제
