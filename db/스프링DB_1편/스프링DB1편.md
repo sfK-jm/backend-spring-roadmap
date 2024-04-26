@@ -824,7 +824,7 @@ private void useDataSource(DataSource dataSource) throws SQLException {
 > [!TIP]
 > DriverManagerDataSource에서 남겨주는 로그를 보자. "Creating new JDBC DriverManager Connection to [jdbc:h2:tcp://localhost/~/test]" -> JDBC DriverManager 를 통해서 jdbc:h2:tcp://localhost/~/test에 접근해서 커넥션을 만들었음을 알 수 있다.
 
-**파라미터 차이**<br>
+### 파라미터 차이
 
 기존 `DriverManager`를 통해서 커넥션을 획득하는 방법과 `DataSource`를 통해서 커넥션을 획득하는 방법에는 큰 차이가 있다.
 
@@ -857,12 +857,12 @@ Connection con2 = DriverManager.getConnection(URL, USERNAME, PASSWORD);
 
 `DriverManager`는 커넥션을 획득할 때 마다 `URL`, `USERNAME`, `PASSWORD` 같은 파라미터를 계속 전달해야 한다. 반면에 `DataSource`를 사용하는 방식은, 처음 객체를 생성할 때만 필요한 파라미터를 남겨두고, 커넥션을 획득할 때는 단순히 `dataSource.getConnection()`만 호출하면 된다.
 
-**설정과 사용의 분리**<br>
+### 설정과 사용의 분리
 
 - **설정**: `DataSource`를 만들고 필요한 속성들을 사용해서 `URL`, `USERNAME`, `PASSWORD`같은 부분을 입력하는 것을 말한다. 이렇게 설정과 관련된 속성들은 한 곳에 있는 것이 향후 변경에 더 유연하게 대처할 수 있다.
 - **사용**: 설정은 신경쓰지 않고, `DataSource`의 `getConnection()`만 호출해서 사용하면 된다.
 
-**설정과 사용의 분리 설명**<br>
+### 설정과 사용의 분리 설명
 
 - 이 부분(설정과 사용의 분리)이 작아보이지만 큰 차이를 만들어내는데, 필요한 데이터를 `DataSource`가 만들어지는 시점에 미리 다 넣어두게 되면, `DataSource`를 사용하는 곳에서는 `dataSource.getConnection()`만 호출하면 되므로, `URL`, `USERNAME`, `PASSWORD`같은 속성들에 의존하지 않아도 된다. 그냥 `DataSource`만 주입받아서 `getConnection()`만 호출하면 된다.
 - 쉽게 이야기해서 리포지토리(Repository)는 `DataSource`만 의존하고, 이런 속성들은 몰라도 된다.
@@ -871,5 +871,212 @@ Connection con2 = DriverManager.getConnection(URL, USERNAME, PASSWORD);
 
 ## DataSource 예제2 - 커넥션 풀
 
+이번에는 `DataSource`를 통해 커넥션 풀을 사용하는 예제를 알아보자.
+
+### ConnectionTest - 데이터소스 풀 추가
+
+```java
+@Test
+void dataSourceConnectionPool() throws SQLException, InterruptedException {
+    //커넥션 풀링: HikariProxyConnection(Proxy) -> JdbcConnection(Target)
+    HikariDataSource dataSource = new HikariDataSource();
+    dataSource.setJdbcUrl(URL);
+    dataSource.setUsername(USERNAME);
+    dataSource.setPassword(PASSWORD);
+    dataSource.setMaximumPoolSize(10); //default: 10 (DEFAULT_POOL_SIZE)
+    dataSource.setPoolName("MyPool");
+
+    useDataSource(dataSource);
+    Thread.sleep(1000); //커넥션 풀에서 커넥션 생성 시간 대기
+}
+
+private void useDataSource(DataSource dataSource) throws SQLException {
+    Connection con1 = dataSource.getConnection();
+    Connection con2 = dataSource.getConnection();
+
+    log.info("connection={}, class={}", con1, con1.getClass());
+    log.info("connection={}, class={}", con2, con2.getClass());
+}
+```
+
+- HikariCP 커넥션 풀을 사용했다. `HikariDataSource`는 `DataSource`인터페이스를 구현하고 있다.
+- 커넥션 풀 최대 사이즈를 10으로 지정하고, 풀의 이름을 `MyPool`이라고 지정했다.
+- 커넥션 풀에서 커넥션을 생성하는 작업은 애플리케이션 실행 속도에 영향을 주지 않기 위해 별도의 쓰레드에서 작동해야 한다. 별도의 쓰레드에서 동작하기 때문에 테스트가 먼저 종료되어 버린다. 예제처럼 `Thread.sleep`을 통해 대기 시간을 주어야 쓰레드 풀에 커넥션이 생성되는 로그를 확안할 수 있다.
+
+### 만약 10개 이상 커넥션을 획득하면 어떻게 될까?
+
+실행할 경우 `MyPool - Pool stats (total=10, active=10, idle=0, waiting=1)`로그를 보면, 커넥션 풀의 10개 커넥션이 모두 사용중이고, 1개가 대기상태인 것을 확인할 수 있따. 그리고 이후 30초 뒤에 SQLTransientConnectionException 예외가 발생하여 오류가 발생한 것을 확인할 수 있다.
+
+### 실행결과를 분석하자
+
+- **HikariConfig**
+  - `HikariCP`관련 설정을 확인할 수 있다. 풀의 이름(`MyPool`)과 최대 풀 수 (`10`)등을 확인할 수 있다.
+- **MyPool connection adder**
+  - 별도의 쓰레드를 사용해서 커넥션 풀에 커넥션을 채우고 있는 것을 확인할 수 있다. 이 쓰레드는 커넥션 풀에 커녁션을 최대 풀 수 (`10`)까지 채운다.
+  - 그렇다면 왜 별도의 쓰레드를 사용해서 커넥션 풀에 커넥션을 채우는 것일까?
+    - 커넥션 풀에 커넥션을 채우는 것은 상대적으로 오래걸리는 일이다. 애플리케이션을 실행할 때 커넥션 풀을 채울 때 까지 마냥 대기하고 있다면 애플리케이션 실행 시간이 늦어진다. 따라서 이렇게 별도의 쓰레드를 사용해서 커넥션 풀을 채워야 애플리케이션 실행 시간에 영향을 주지 않는다.
+- **커넥션 풀에서 커넥션 획득**
+  - 커넥션 풀에서 커넥션을 획득하고 그 결과를 출력했다. 여기선는 커넥션 풀에서 커넥션을 2개 획득하고 반환하지는 않았다. 따라서 풀에 있는 10개의 커넥션 중에 2개를 애플리케이션이 가지고 있는 상태이다. 그래서 마지막 로그를 보면 사용중인 커넥션 `active=2`, 풀에서 대기 상태인 커넥션 `idle=8`을 확인할 수 있다.(`Mypool - After adding stats(total=10, active=2, idle=8, waiting=0)`)
+
 ## DataSource 적용
 
+이번에는 `DataSource`를 애플리케이션에 적용해보자.
+
+학습시 참고 잘료도 기존 코드는 그대로 유지하기 우해, 기존 코드를 복사해서 새로 만들자.
+
+- `MemberRepositoryV0` -> `MemberRepositoryV1`
+- `MemeberRepositoryV0Test` -> `MemeberRepositoryV1Test`
+
+### MemberRepositoryV1 - 수정
+
+```java
+package hello.jdbc.repository;
+
+import hello.jdbc.connection.DBConnectionUtil;
+import hello.jdbc.domain.Member;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.jdbc.support.JdbcUtils;
+
+import javax.sql.DataSource;
+import java.sql.*;
+import java.util.NoSuchElementException;
+
+/**
+ * JDBC - DriverManager 사용
+ */
+@Slf4j
+public class MemberRepositoryV1 {
+
+    private final DataSource dataSource;
+
+    public MemberRepositoryV1(DataSource dataSource) {
+        this.dataSource = dataSource;
+    }
+
+    public Member save(Member member) throws SQLException { ... }
+
+    public Member findById(String memberId) throws SQLException { ... }
+
+    public void update(String memberId, int money) throws SQLException { ... }
+
+    public void delete(String memberId) throws SQLException { ... }
+
+
+    private void close(Connection con, Statement stmt, ResultSet rs) {
+        JdbcUtils.closeResultSet(rs);
+        JdbcUtils.closeStatement(stmt);
+        JdbcUtils.closeConnection(con);
+    }
+
+    private Connection getConnection() throws SQLException {
+        Connection con = dataSource.getConnection();
+        log.info("get connection={}, class={}", con, con.getClass());
+        return con;
+    }
+}
+```
+
+- `DataSource` 의존관계 주입
+  - 외부에서 `DataSource`를 주입 받아서 사용한다. 이제 직접 만든 `DBConnectionUtil`을 사용하지 않아도 된다.
+  - `DataSource`는 표준 인터페이스이기 때문에 `DriverManagerDataSource`에서 `HikariDataSource`로 변경되어도 해당 코드를 변경하지 않아도 된다. (둘 다 표준 인터페이스인 `DataSource`를 구현하고 있기 때문)
+- `JdbcUtils` 편의 메서드
+  - 스프링은 JDBC를 편리하게 다룰 수 있는 `JdbcUtils`라는 편의 메서드를 제공한다.
+  - `JdbcUtils`을 사용하면 커넥션을 좀 더 편리하게 닫을 수 있다.
+
+### MemberRepositoryV1Test - 수정 (DriverManagerDataSource 사용)
+
+```java
+package hello.jdbc.repository;
+
+import hello.jdbc.domain.Member;
+import lombok.extern.slf4j.Slf4j;
+import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+
+import java.sql.SQLException;
+import java.util.NoSuchElementException;
+
+import static hello.jdbc.connection.ConnectionConst.*;
+import static org.assertj.core.api.Assertions.assertThat;
+
+@Slf4j
+class MemberRepositoryV1Test {
+
+    MemberRepositoryV1 repository;
+
+    @BeforeEach
+    void beforeEach() {
+        DriverManagerDataSource dataSource = new DriverManagerDataSource(
+                URL, USERNAME, PASSWORD
+        );
+        repository = new MemberRepositoryV1(dataSource);
+    }
+
+    @Test
+    void crud() throws SQLException {
+
+        //save
+        System.out.println("-----------save-----------");
+        Member member = new Member("memberV0", 10000);
+        repository.save(member);
+
+        //findById
+        System.out.println("-----------findById-----------");
+        Member findMember = repository.findById(member.getMemberId());
+        log.info("findMember={}", findMember);
+        assertThat(findMember).isEqualTo(member);
+
+        //update(money : 10000 -> 20000)
+        System.out.println("-----------update-----------");
+        repository.update(member.getMemberId(), 20000);
+        Member updatedMember = repository.findById(member.getMemberId());
+        log.info("memberid={}", member.getMemberId());
+        log.info("money={}", member.getMoney());
+        assertThat(updatedMember.getMoney()).isEqualTo(20000);
+
+        System.out.println("-----------delete-----------");
+        repository.delete(member.getMemberId());
+        Assertions.assertThatThrownBy(
+                () -> repository.findById(member.getMemberId())).isInstanceOf(NoSuchElementException.class);
+    }
+}
+```
+
+- (참고) @BeforeEach: 각 테스트가 실행되기 직전에 호출된다.
+- `MemberRepositoryV1`은 `DataSource` 의존관계 주입이 필요하다.
+
+### MemberRepositoryV1Test - 수정 (HikariDataSource 사용)
+
+```java
+@Slf4j
+class MemberRepositoryV1Test {
+
+    MemberRepositoryV1 repository;
+
+    @BeforeEach
+    void beforeEach() {
+        //커넥션 풀링: HikariProxyConnection -> JdbcConnection
+        HikariDataSource dataSource = new HikariDataSource();
+        dataSource.setJdbcUrl(URL);
+        dataSource.setUsername(USERNAME);
+        dataSource.setPassword(PASSWORD);
+
+        repository = new MemberRepositoryV1(dataSource);
+
+        ...
+    }
+```
+
+- 커넥션 풀 사용시 `conn0`커넥션이 재사용된 것을 확인할 수 있다. (참고로 커넥션 close시, 커넥션 풀인 경우에는 커넥션을 닫는게 아니라 커넥션 풀에 반환한다.)
+- 테스트는 순서대로 실핻되기 때문에 커넥션을 사용하고 다시 돌려주는 것을 반복한다. 따라스 `conn0`만 사용된다.(참고. 커넥션을 꺼낼 때는 처음에 있는 사용 가능한 것을 꺼낸다.)
+- 웹 애플리케이션에 동시에 여러 요청이 들어오면 여러 쓰레드에서 커넥션 풀의 커넥션을 다양하게 가져가는 상황을 확인할 수 있다.
+
+> [!NOTE]
+> HikariProxyConnection 객체 인스턴스 주소는 다 다르다. Hikari에서는 커넥션 풀에서 커넥션을 반환해줄 때, HikariProxyConnection 이라는 객체를 생성하고, 거기에 실제 커넥션을 wrapping해서 반환한다. (따라서 HikariProxyConnection 객체 인스턴스 주소는 다 다르지만, 그 안에 실제 커넥션은 동일하다.)<br>
+> **핵심은 커넥션 풀을 사용하면, 같은 커넥션을 재사용할 수 있다는 점이다.**
+
+> [!TIP]
+> **DI**<br>
+> `DriverManagerDataSource` -> `HikariDataSource`로 변경해도 `MemberRepositoryV1`의 코드는 전혀 변경하지 않아도 된다. `MemberRepositoryV1`는 `DataSource`인터페이에만 의존하기 때문이다. 이것이 `DataSource`를 사용하는 장점이다. (`MemberRepositoryV1`는 `DataSource` 인터페이스에만 의존한다. 구현체가 바뀌더라도 코드를 변경하지 않아도 된다.)
