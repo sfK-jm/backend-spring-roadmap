@@ -1670,4 +1670,178 @@ update member set money=500 where member_id='memberA';
 
 ## 트랜잭션 - 적용 1
 
+실제 애프릴케이션에서 DB 트랜잭션을 사용해서 계좌이체 같이 원자성이 중요한 비즈니스 로직을 어떻게 구현하는지 알아보자.
+
+먼저 트랜잭션 없이, 단순하게 계좌이체 비즈니스 로직만 구현해보자.
+
+### MemberServiceV1 생성
+
+```java
+package hello.jdbc.service;
+
+import hello.jdbc.domain.Member;
+import hello.jdbc.repository.MemberRepositoryV1;
+import lombok.RequiredArgsConstructor;
+
+import java.sql.SQLException;
+
+@RequiredArgsConstructor
+public class MemberServiceV1 {
+
+    private final MemberRepositoryV1 memberRepository;
+
+    public void accountTransform(String fromId, String toId, int money) throws SQLException {
+        Member fromMember = memberRepository.findById(fromId);
+        Member toMember = memberRepository.findById(toId);
+
+        memberRepository.update(fromId, fromMember.getMoney() - money);
+        validation(toMember);
+        memberRepository.update(toId, toMember.getMoney() + money);
+    }
+
+    private static void validation(Member toMember) {
+        if (toMember.getMemberId().equals("ex")) {
+            throw new IllegalStateException("이체 중 예외 발생");
+        }
+    }
+}
+```
+
+- `fromId`의 회원을 조회해서 `toId`의 회원에게 `money`만큼의 돈을 계좌이체 하는 로직이다.
+  - `fromId`회원의 돈은 `money`만큼 감소한다. -> `UPDATE SQL`실행
+  - `toId`회원의 돈을 `money`만큼 증가한다. -> `UPDATE SQL`실행
+- (참고) 예외 상황을 테스트해보기 위해 `toId`가 `"ex"`인 경우 예외를 발생한다
+
+### MemberServiceV1Test 생성
+
+```java
+package hello.jdbc.service;
+
+import hello.jdbc.connection.ConnectionConst;
+import hello.jdbc.domain.Member;
+import hello.jdbc.repository.MemberRepositoryV1;
+import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+
+import java.sql.SQLException;
+
+import static hello.jdbc.connection.ConnectionConst.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * 기본 동작, 트랜젝션이 없어서 문제 발생
+ */
+class MemberServiceV1Test {
+
+    public static final String MEMBER_A = "memberA";
+    public static final String MEMBER_B = "memberB";
+    public static final String MEMBER_EX = "ex";
+
+    private MemberRepositoryV1 memberRepository;
+    private MemberServiceV1 memberService;
+
+    @BeforeEach
+    void beforeEach() {
+        DriverManagerDataSource dataSource = new DriverManagerDataSource(
+                URL, USERNAME, PASSWORD
+        );
+        memberRepository = new MemberRepositoryV1(dataSource);
+        memberService = new MemberServiceV1(memberRepository);
+    }
+
+    @Test
+    @DisplayName("정상 이체")
+    void accountTransfer() throws SQLException {
+        //given
+        Member memberA = new Member(MEMBER_A, 10000);
+        Member memberB = new Member(MEMBER_B, 10000);
+        memberRepository.save(memberA);
+        memberRepository.save(memberB);
+
+        //when
+        memberService.accountTransform(memberA.getMemberId(), memberB.getMemberId(), 2000);
+
+        //then
+        Member findMemberA = memberRepository.findById(memberA.getMemberId());
+        Member findMemberB = memberRepository.findById(memberB.getMemberId());
+        Assertions.assertThat(findMemberA.getMoney()).isEqualTo(8000);
+        Assertions.assertThat(findMemberB.getMoney()).isEqualTo(12000);
+    }
+}
+```
+
+- 정상적으로 실행됨을 확인할 수 있다. (memberA의 돈이 차감되었고, memberB의 돈이 증가하였다.)
+- (주의) 테스트를 수행하기 전에 MEMBER 테이블 내 데이터를 삭제해야 한다.
+
+### 정상이체 - accountTransfer()
+
+- **given**: 다음 데이터를 저장해서 테스트를 준비한다
+  - memberA 10000원
+  - memberB 10000원
+- **when**: 계좌이체 로직을 실행한다.
+  - `memberService.accountTransfer()`를 실행한다.
+  - `memberA` -> `memberB`로 2000원 계좌이체 한다.
+    - `memberA`의 금액이 2000원 감소한다
+    - `memberB`의 금액이 2000원 증가한다.
+  - **then**: 계좌이체가 정상 수행되었는지 검증한다.
+    - `memberA` 8000원
+    - `memberB` 12000원
+
+### 예외발생 테스트
+
+```java
+@Test
+@DisplayName("이체 중 예외 발생")
+void accountTransferEx() throws SQLException {
+    //given
+    Member memberA = new Member(MEMBER_A, 10000);
+    Member memberEx = new Member(MEMBER_EX, 10000);
+    memberRepository.save(memberA);
+    memberRepository.save(memberEx);
+
+    //when
+    Assertions.assertThatThrownBy(
+            () -> memberService.accountTransform(memberA.getMemberId(), memberEx.getMemberId(), 2000))
+            .isInstanceOf(IllegalStateException.class);
+
+    //then
+    Member findMemberA = memberRepository.findById(memberA.getMemberId());
+    Member findMemberEx = memberRepository.findById(memberEx.getMemberId());
+    Assertions.assertThat(findMemberA.getMoney()).isEqualTo(8000);
+    Assertions.assertThat(findMemberEx.getMoney()).isEqualTo(10000);
+}
+```
+
+### 이체중 예외 발생 - accountTransferEx()
+
+- **given**: 다음 데이터를 저장해서 테스트를 준비한다.
+  - `memberA` 10000원
+  - `memberEx` 10000원
+- **when**: 계좌이체 로직을 실행한다.
+  - `memberService.accountTransfer()`를 실행한다.
+  - `memberA` -> `memberEx`로 2000원 계좌이체 한다.
+    - `memberA`의 금액이 2000원 감소한다
+    - `memberEx`의 회원ID는 `ex`이므로 **중간에 예외가 발생한다**
+  - **then**: 계좌이체는 실패한다. `memberA`의 돈만 2000원 줄어든다
+    - `memberA` 8000원
+    - `memberEx` 10000원
+
+> [!NOTE]
+> 이체중 예외가 발생하게 되면 `memberA`의 금액은 10000원 -> 8000원으로 2000원 감소한다. 그런데 `memberEx`의 돈은 10000원으로 남아있다. 결과적으로 `memberA`의 돈만 2000원으로 감소한 것이다!
+
+> [!TIP]
+> 테스트가 끝나면 다음 테스트에 영향을 주지 않기 위해 `@AfterEach`에서 테스트에 사용한 데이터를 모두 삭제하자.
+
+```java
+@AfterEach
+void after() throws SQLException {
+    memberRepository.delete(MEMBER_A);
+    memberRepository.delete(MEMBER_B);
+    memberRepository.delete(MEMBER_EX);
+}
+```
+
 ## 트랜잭션 - 적용 2
