@@ -2673,13 +2673,385 @@ class MemberServiceV3_1Test {
   - JDBC 기술을 사용하므로, JDBC용 트랜잭션 매니저(`DataSourceTransactionManager`)를 선택해서 서비스에 주입한다
   - 트랜잭션 매니저는 데이터소스를 통해 커넥션을 생성하므로 `DataSource`가 필요하다.
 
-## 트랜잭션 문제 해결 - 트랜잭션 매니저
+## 트랜잭션 문제 해결 - 트랜잭션 매니저 2
+
+그림으로 트랜잭션 매니저의 전체 동작 흐름을 자세히 이해해보자.<br>
+(이 매커니즘을 이해햐고 있어야 스프링 트랜잭션에 대해서 깊이있게 이해할 수 있다.)
+
+### 트랜잭션 매니저1 - 트랜잭션 시작
+
+<img src="./imgs/트랜잭션/트랜잭션_매니저1-트랜잭션_시작.png"><br>
+
+- 클라이언트의 요청으로 서비스 로직을 실행한다.
+1. 서비스 계층에서 `transactionManager.getTransaction()`을 호출해서 트랜잭션을 시작한다.
+2. 트랜잭션을 시작하려면 먼저 데이터베이스 커넥션이 필요하다. 트랜잭션 매니저는 내부에서 데이터소스를 사용해서 커넥션을 생성한다.
+3. 커넥션을 수동 커밋모드로 변경해서 실제 데이터베이스 트랜잭션을 시작한다.
+4. (트랜잭션을 시작한) 커넥션을 트랜잭션 동기화 매니저에 보관한다.
+5. 트랜잭션 동기화 매니저는 쓰레드 로컬에 커넥션을 보관한다. 따라서 멀티 쓰레드 환경에서 안전한게 커넥션을 보관할 수 있다.
+
+### 트랜잭션 매니저2 - 로직 실행
+
+<img src="./imgs/트랜잭션/트랜잭션_매니저2-로직_실행.png"><br>
+
+6. 서비스는 비즈니스 로직을 실행하면서 리포지토리의 메서드들을 호출한다. 이때 커넥션을 이제는 파라미터로 전달하지 않는다.
+7. 리포지토리 메서들은 트랜잭션이 시작된 커넥션이 필요하다. 리포지토리는 `DataSourceUtils.getConnection()`을 사용해서 트랜잭션 동기화 매니저에 보관된 커넥션을 꺼내서 사용한다. 이 과정을 통해서 자연스럽게 같은 커넥션을 사용하고, 트랜잭션도 유지된다,.
+8. 획득한 커넥션을 사용해서 SQL을 데이터베이스에 전달해서 실행한다.
+
+### 트랜잭션 매니저3 - 트랜잭션 종료
+
+<img src="./imgs/트랜잭션/트랜잭션_매니저3-트랜잭션_종료.png"><br>
+
+9. 비즈니스 로직이 끝나고 트랜잭션을 종료한다. 트랜잭션은 커밋하거나 롤백하면 종료된다
+10. 트랜잭션을 종료하려면 동기화된 커넥션이 필요하다. 트랜잭션 동기화 매니저를 통해 동기화된 커넥션을 획득한다.
+11. 획득한 커넥션을 통해 데이터베이스에 트랜잭션을 커밋하거나 롤백한다
+12. 전체 리소스를 정리한다
+    - 트랜잭션 동기화 매니저를 정리한다. 쓰레드 로컬은 사용 후 꼭 정리해야 한다.
+    - `con.setAutoCommit(true)`로 되돌린다. 커넥션 풀을 고려해야 한다.
+    - `con.close()`를 호출해서 커넥션을 종료한다. 커넥션 풀을 사용하는 경우 `con.close()`를 호출하면 커넥션 풀에 반환된다.
+
+> [!NOTE]
+> - 트랜잭션 추상화 덕분에 서비스 코드는 이제 JDBC 기술에 의존하지 않는다.<br>(PlatformTransactionManager에 의존한다.)
+>   - 이후 JDBC에서 JPA로 변경해도 서비스 코드를 그대로 유지할 수 있다.
+>   - 기술 변경시 의존관계 주입만 `DataSourceTransactionManager`에서 `JpaTransactionManager`로 변경해주면 된다.
+>   - `java.sql.SQLException`이 아직 남아있지만 이 부분은 뒤에 예외 문제에서 해결하자.
+> - 트랜잭션 동기화 매니저 덕분에 커넥션을 파라미터로 넘기지 않아도 된다.
+
+> [!TIP]
+> 여기서는 `DataSourceTransactionManager`의 동작 방식을 위주로 설명했다. 다른 트랜잭션 매니저는 해당 기술에 맞도록 변형되어서 동작한다.
 
 ## 트랜잭션 문제 해결 - 트랜잭션 템플릿
 
+트랜잭션을 사용하는 로직을 살펴보면 다음과 같은 패턴이 반복되는 것을 확인할 수 있다.
+
+**트랜잭션 사용 코드**<br>
+
+```java
+TransactionStatus status = transactionManager.getTransaction(
+    new DefaultTransactionDefinition()); // 트랜잭션 시작
+
+try {
+    bizLogic(fromId, toId, money); //비즈니스 로직
+    transactionManager.commit(status); //성공시 커밋
+} catch (Exception e) {
+    transactionManager.rollback(status); //실패시 롤백
+    throw new IllegalStateException(e);
+}
+```
+
+- 트랜잭션을 시작하고, 비즈니스 로직을 실행하고, 성공하면 커밋하고, 예외가 발생해서 실패하면 롤백한다.
+- 다른 서비스에서 트랜잭션을 시작하려면 `try`, `catch`, `finally`를 포함한 성공시 커밋, 실패시 롤백 코드가 반복될 것이다.
+- 이런 형태는 각각의 서비스에서 반복된다. 달라지는 부분은 비즈니스 로직 뿐이다.
+
+이럴때 템플릿 롤백 패턴을 활용하면 이런 반복 문제를 깔끔하게 해결할 수 있다.
+
+- (참고) 템플릿 콜백 패턴에 대해서 지금은 자세히 이해하지 못해도 괜찮다. 스프링이 `TransactionTemplate`이라는 편리한 기능을 제공하는구나 정도로 이해해도 된다.
+- (참고) (템플릿 콜백 패턴으로 구현되어 있는) `TransactionTemplate`을 사용하면, 우리는 비즈니스 로직만 작성하면 된다. `TransactionTemplate`내부에서 트랜잭션을 시작하고, 성공하면 커밋, 실패하면 롤백하는 코들르 대신 처리해준다.
+
+### 트랜잭션 템플릿
+
+템플릿 콜백 패턴을 적용하려면 템플릿을 제공하는 클래스를 작성해야 하는데, 스프링은 `TransactionTemplate`라는 템플릿 클래스를 제공한다
+
+**TransactionTemplate 참고**<br>
+```java
+public class TransactionTemplate {
+
+    private PlatformTransactionManager transactionManager;
+
+    public <T> T execute(TransactionCallback<T> action) {...}
+    void executeWithoutResult(Consumer<TransactionStatus> action) {...}
+}
+```
+
+- `execute()`: 응답 값이 있을 때 사용한다
+- `executeWithoutResult()`: 응답 값이 없을 때 사용한다.
+
+트랜잭션 템플릿을 사용해서 반복하는 부분을 제거해보자
+
+### MemberServiceV3_2 생성
+
+```java
+/**
+ * 트랜잭션 - 트랜잭션 템플릿
+ */
+@Slf4j
+@RequiredArgsConstructor
+public class MemberServiceV3_2 {
+
+    //private final PlatformTransactionManager transactionManager;
+    private final TransactionTemplate txTemplate;
+    private final MemberRepositoryV3 memberRepository;
+
+    public MemberServiceV3_2(PlatformTransactionManager transactionManager,
+                             MemberRepositoryV3 memberRepository) {
+        this.txTemplate = new TransactionTemplate(transactionManager);
+        this.memberRepository = memberRepository;
+    }
+
+    public void accountTransform(String fromId, String toId, int money) throws SQLException {
+
+        txTemplate.executeWithoutResult((status) -> {
+            try {
+                bizLogic(fromId, toId, money); // 비즈니스로직
+            } catch (SQLException e) {
+                throw new IllegalStateException(e);
+            }
+        });
+    }
+    // ...
+}
+```
+
+`TransactionTemplate`을 사용하려면 `transactionManager`가 필요하다. 생성자에서 `transactionManager`를 주입 받으면서 `TransactionTemplate`을 생성했다.
+
+### 코드 분석
+
+- 트랜잭션 템플릿 덕분에 트랜잭션을 시작하고, 커밋하거나 롤백하는 코드가 모두 제거되었다.
+- 트랜잭션 템플릿의 기본 동작은 다음과 같다.
+  - 비즈니스 로직이 정상 수행되면 커밋한다
+  - 언체크 예외가 발생하면 롤백한다. 그 외의 경우 커밋한다.(체크 예외의 경우에는 커밋하는데, 이 부분은 뒤에서 설명한다)
+- 코드에서 예외를 처리하기 위해 `try~catch`가 들어갔는데, `bizLogic()`메서드를 호출하면 `SQLException`체크 예외를 넘겨준다. 해당 람다에서 체크 예외를 밖으로 던질 수 없기 때문에 언체크 예외로 바꾸어 던지도록 예외를 전환했다.
+
+### MemberServiceV3_2Test
+
+```java
+class MemberServiceV3_2Test {
+
+    public static final String MEMBER_A = "memberA";
+    public static final String MEMBER_B = "memberB";
+    public static final String MEMBER_EX = "ex";
+
+    private MemberRepositoryV3 memberRepository;
+    private MemberServiceV3_2 memberService;
+
+    @BeforeEach
+    void beforeEach() {
+        DriverManagerDataSource dataSource = new DriverManagerDataSource(
+                URL, USERNAME, PASSWORD
+        );
+        PlatformTransactionManager transactionManager = new DataSourceTransactionManager(dataSource);
+
+        memberRepository = new MemberRepositoryV3(dataSource);
+        memberService = new MemberServiceV3_2(transactionManager, memberRepository);
+    }
+    // ...
+}
+```
+
+> [!NOTE]
+> - 트랜잭션 템플릿 덕분에, 트랜잭션을 사용할 때 반복하는 코드를 제거할 수 있었다.
+> - 핮만 이곳은 서비스 로직인데 비즈니스 로직 뿐만 아니라 트랜잭션을 처리하는 기술 로직이 함께 포함되어 있다
+> - 애플리케이션을 구성하는 로직을 핵심 기능과 부가 기능을 구분하자면 서비스 입장에서 비즈니스 로직은 핵심 기능이고, 트랜잭션은 부가 기능이다.
+> - 이렇게 비즈니스 로직과 트랜잭션을 처리하는 기술 로직이 한 곳에 있으면 두 관심사를 하나의 클래스에서 처리하게 된다. 결과적으로 코드를 유지보수하기 여려워진다.
+> - 서비스 로직은 가급적 핵심 비즈니스 로지만 있어야 한다. 하지만 트랜잭션 기술을 사용하려면 어쩔 수 없이 트랜잭션 코드가 나와야 한다. 어떻게 하면 이 문제를 해결할 수 있을까?
+
 ## 트랜잭션 문제 해결 - 트랜잭션 AOP 이해
 
+- 지금까지 트랜잭션을 편리하게 처리하기 위해서 트랜잭션 추상화도 도입하고, 추가로 반복적인 트랜잭션 로직을 해결하기 위해 트랜잭션 템플릿도 도입했다.
+- 트랜잭션 템플릿 덕분에 트랜잭션을 처리하는 반복 코드는 해결할 수 있었다. 하지만 서비스 계층에 순수한 비즈니스 로직만 남긴다는 목표는 아직 달성하지 못했다.
+- 이럴때 스프링 AOP를 통해 프록시를 도입하면 문제를 깔끔하게 해결할 수 있다.
+  - (참고) 스프링 AOP와 프록시에 대해서 지금은 자세히 이해하지 못해도 괜찮다. 지금은 `@Transactional`을 사용하면 스프링이 AOP를 사용해서 트랜잭션을 편리하게 처리해준다 정도로 이해해도 된다.
+
+### 프록시를 통해 문제 해결
+
+#### 프록시 도입 전
+
+<img src="./imgs/트랜잭션/프록시_도입_전.png"><br>
+
+프록시 도입하기 전에는 기존처럼 서비스의 로직에서 트랜잭션을 직접 시작한다.<br>
+**서비스 계층의 트랜잭션 사용 코드 예시**<br>
+
+```java
+TransactionStatus status = transactionManager.getTransaction(
+    new DefaultTransactionDefinition()); //트랜잭션 시작
+
+try {
+    bizLogic(fromId, toId, money); //비즈니스 로직
+    transactionManager.commit(status); //성공시 커밋
+} catch(Exception e) {
+    transactionManager.rollback(status); // 실패시 롤백
+    throw new IllegalStateException(e);
+}
+```
+
+프록시 도입 전: 서비스에 비즈니스 로직과 트랜잭션 처리 로직이 함께 섞여있다.
+
+#### 프록시 도입 후
+
+<img src="./imgs/트랜잭션/프록시_도입_후.png"><br>
+
+프록시를 사용하면 트랜잭션을 처리하는 객체와 비즈니스 로직을 처리하는 서비스 객체를 명확하게 분리할 수 있다.<br>
+**트랜잭션 프록시 코드 예시**<br>
+```java
+public class TransactionProxy {
+    private MemberService target;
+
+    public void logic() {
+        //트랜잭션 시작
+        TransactionStatus status = transactionManager.getTransaction(...);
+        try {
+            //실제 대상 호출
+            target.logic();
+            transactionManager.commit(status); //성공시 커밋
+        } catch (Exception e) {
+            transactionManager.rollback(status); //실패시 롤백
+            throw new IllegalStateException(e);
+        }
+    }
+}
+```
+
+**트랜잭션 프록시 적용 후 서비스 코드 예시**<br>
+```java
+public class Service {
+    public void logic() {
+        //트랜잭션 관련 코드 제거, 순수 비즈니스 로직만 남음
+        bizLogic(fromId, toId, money);
+    }
+}
+```
+
+프록시 도입 후: 트랜잭션 프록시(트랜잭션을 처리하는 프록시)가 트랜잭션을 모두 가져간다. 그리고 트랜잭션을 시작한 후에 실제 서비스 대신 호출한다. 트랜잭션 프록시 덕분에 서비스 계층에는 순수한 비즈니스 로직만 남길 수 있다.
+
+### 트랜잭션이 제공하는 트랜잭션 AOP
+
+스프링이 제공하는 AOP기능을 사용하면 프록시를 매우 편리하게 적용할 수 있다.
+
+물론 스프링AOP를 지금 사용해서 트랜잭션을 처리해도 되지만, 트랜잭션은 매우 중요한 기능이고, 전세계 누구나 다 사용하는 기능이다. 스프링은 트랜잭션 AOP를 처리하기 위한 모든 기능을 제공한다. 스프링 부트를 사용하면 트랜잭션 AOP를 처리하기 위해 필요한 스프링 빈들도 자동을 등록해준다.
+
+개발자는 트랜잭션 처리가 필요한 곳에 `@Transactional( org.springframework.transaction.annotation.Transactional )`애노테이션만 붙여주면 된다. 그러면 스프링의 트랜잭션 AOP는 이 애노테이션을 인식해서 트랜잭션 프록시를 적용해준다.
+
+> [!TIP]
+> 참고로 스프링 AOP를 적용하려면 어드바이저, 포인트컷, 어드바이스가 필요하다. 스프링은 트랜잭션 AOP 처리를 위해 다음 클래스를 제공한다. 스프링 부트를 사용하면 해당 빈들은 스프링 컨테이너에 자동으로 등록된다.<br>
+> 어드바이저 `BeanFactoryTransactionAttributeSourceAdvisor`<br>
+> 포인트컷: `TransactionAttributeSourcePointcut`<br>
+> 어드바이스: `TransactionInterceptor`<br>
+
 ## 트랜잭션 문제 해결 - 트랜잭션 AOP 적용
+
+앞서 배운 트랜잭션 AOP를 실제 적용해보자.
+
+### MemberServiceV3_3
+
+```java
+package hello.jdbc.service;
+
+import hello.jdbc.domain.Member;
+import hello.jdbc.repository.MemberRepositoryV3;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import java.sql.SQLException;
+
+/**
+ * 트랜잭션 - 트랜잭션 템플릿
+ */
+@Slf4j
+public class MemberServiceV3_3 {
+
+    private final MemberRepositoryV3 memberRepository;
+
+    public MemberServiceV3_3(MemberRepositoryV3 memberRepository) {
+        this.memberRepository = memberRepository;
+    }
+
+    @Transactional
+    public void accountTransfer(String fromId, String toId, int money) throws SQLException {
+        bizLogic(fromId, toId, money);
+    }
+
+    private void bizLogic(String fromId, String toId, int money) throws SQLException {
+        Member fromMember = memberRepository.findById(fromId);
+        Member toMember = memberRepository.findById(toId);
+
+        memberRepository.update(fromId, fromMember.getMoney() - money);
+        validation(toMember);
+        memberRepository.update(toId, toMember.getMoney() + money);
+    }
+
+
+    private static void validation(Member toMember) {
+        if (toMember.getMemberId().equals("ex")) {
+            throw new IllegalStateException("이체 중 예외 발생");
+        }
+    }
+}
+```
+
+- 순수한 비즈니스 로직만 남기고, 트랜잭션 관련 코드는 모두 제거했다
+- 스프링이 제공하는 트랜잭션 AOP를 적용하기 위해 `@Transactional`애노테이션을 추가했다.
+- `@Transactional` 애노테이션은 메서드에 붙어도 되고, 클래스에 붙여도 된다. 클래스에 붙이면 외부에서 호출 가능한 `public`메서드가 AOP 적용대상이 된다.
+
+### 테스트 코드
+
+```java
+@Slf4j
+@SpringBootTest
+class MemberServiceV3_3Test {
+
+    public static final String MEMBER_A = "memberA";
+    public static final String MEMBER_B = "memberB";
+    public static final String MEMBER_EX = "ex";
+
+    @Autowired
+    private MemberRepositoryV3 memberRepository;
+    @Autowired
+    private MemberServiceV3_3 memberService;
+
+    @TestConfiguration
+    static class TestConfig {
+        @Bean
+        DataSource dataSource() {
+            return new DriverManagerDataSource(URL, USERNAME, PASSWORD);
+        }
+
+        @Bean
+        DataSourceTransactionManager transactionManager() {
+            return new DataSourceTransactionManager(dataSource());
+        }
+
+        @Bean
+        MemberRepositoryV3 memberRepositoryV3() {
+            return new MemberRepositoryV3(dataSource());
+        }
+
+        @Bean
+        MemberServiceV3_3 memberServiceV3_3() {
+            return new MemberServiceV3_3(memberRepositoryV3());
+        }
+    }
+    // .....
+}
+```
+
+(참고) @BeforeEach는 이제 주석처리 하였다.
+
+### 코드 분석
+
+- `@SpringBootTest`: 스프링 AOP를 적용하려면 스프링 컨테이너가 필요하다. 이 애노테이션이 있으면 테스트시 스프링 부트를 통해 스프링 컨테이너를 생성한다. 그리고 테스트에서 `@Autowired`등을 통해 스프링 컨테이너가 관리하는 빈들을 사용할 수 있다.
+- `@TestConfiguration`: 테스트 안에서 내부 설정 클래스를 만들어서 사용하면서 이 애노테이션을 붙이면, 스프링 부트가 자동으로 만들어주는 빈들에 추가로 필요한 스프링 빈들을 등록하고 테스트를 수행할 수 있다.
+- `TestConfig`
+  - `DataSource`: 스프링에서 기본으로 사용할 데이터소스를 스프링 빈으로 등록한다. 추가로 트랜잭션 매니저에서도 사용한다.
+  - `DataSourceTransactionManager`: 트랜잭션 매니저를 스프링 빈으로 등록한다.
+    - 스프링이 제공한느 트랜잭션 AOP는 스프링 빈에 등록된 트랜잭션 매니저를 찾아서 사용하기 때문에 트랜잭션 매니저를 스프링 빈으로 등록해두어야 한다.
+
+**참고**<br>
+
+```java
+@Test
+void AopCheck() {
+    log.info("memberService class={}", memberService.getClass());
+    log.info("memberRepository class={}", memberRepository.getClass());
+    assertThat(AopUtils.isAopProxy(memberService)).isTrue();
+    assertThat(AopUtils.isAopProxy(memberRepository)).isFalse();
+}
+```
+
+- 정상적으로 실행됨을 확인할 수 있다.
+- 먼저 AOP 프록시가 적용되었는지 확인해보자. `AopCheck()`의 실행결과를 보면 `memberService`에 `EnhancerBySpringCGLIb...`라는 부분을 통해 프록시(CGLIB)가 적용된 것을 확인할 수 있다. `memberRepository`에는 AOP를 적용하지 않았기 때문에 프록시가 적용되지 않는다.
+- 나머지 테스트 코드들을 실행해보면 트랜잭션이 정상 수행되고, 실패시 정상 롤백된 것을 확인할 수 있다.
 
 ## 트랜잭션 문제 해결 - 트랜잭션 AOP 정리
 
