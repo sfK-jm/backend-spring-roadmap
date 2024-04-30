@@ -39,7 +39,7 @@ public class MemberRepositoryV3 {
             log.error("db error",e);
             throw e;
         }finally {
-            close(con,pstmt,null); //rs,stmt,con이 전부 닫혀야 하기 때문에
+            close(con, pstmt,null); //rs,stmt,con이 전부 닫혀야 하기 때문에
         }
     }
 

@@ -3055,4 +3055,197 @@ void AopCheck() {
 
 ## 트랜잭션 문제 해결 - 트랜잭션 AOP 정리
 
+앞서 학습한 트랜잭션 AOP를 정리해보자.<br>(트랜잭션 AOP가 적용된 전체 흐름을 그림으로 정리해보자)<br>
+
+### 트랜잭션 AOP적용 전체 흐름
+
+<img src="./imgs/트랜잭션/트랜잭션_AOP적용_전체_흐름.png"><br>
+
+- (참고) `@Transactional`애노테이션이 적용되어 있으면, 스프링은 트랜잭션 로직을 처리해주는 AOP프록시를 생성한다. 여기에서 트랜잭션 로직이 처리되고 실제 서비스가 호출된다.(클라이언트에서 의존관계 주입시에도 실제 서비스가 아닌 AOP 프록시가 주입된다.)
+- 1: 클라이언트가 AOP프록시를 호출한다
+- 2-3: 프록시 내부 코드에서는 트랜잭션 매니저를 통해서 트랜잭션을 시작한다. (스프링 빈으로 등록된 트랜잭션 매니저를 가져다 사용한다.)
+- 4-7: 트랜잭션 매니저로 트랜잭션을 시작할 때 내부에서는 다음과 같이 처리한다.(dataSource를 가지고 커넥션을 획득한다. 그리고 setAutoCommit(false)를 통해서 수동 커밋 모드로 만들고 트랜잭션을 시작한다. 그리고 이 커넥션을 동기화하기 위해서 트랜잭션 동기화 매니저에 보관한다.)
+- 8: 그런 다음, AOP프록시에 실제 서비스 로직을 호출한다. 비즈니스 로직에서는 리포지토리를 호출한다
+- 9: 리포지토리에서는 트랜잭션 동기화 매니저에 있는 커넥션을 획득한다.
+- 비즈니스 로직 처리가 끝나면, 성공시 commit, (Runtime) 예외가 발생하면 롤백하는 로직이 수행된다.
+- 이런 모든 부분을 `@Transactional` 애노테이션 하나로 스프링이 해결해주는 것이다.
+
+### 선언적 트랜잭션 관리 vs 프로그래밍 방식 트랜잭션 관리
+
+- 선언적 트랜잭션 과리(Declarative Transaction Management)
+  - `@Transactional` 애노테이션 하나만 선언해서 매우 편리하게 트랜잭션을 적용하는 것을 선언적 트랜잭션 관리라 한다.
+  - 선언적 트랜잭션 관리는 과거 XML에 설정하기도 했다. 이름 그대로 해당 로직에 트랜잭션을 적용하겠다라고 어딘가에 선언하기만 하면 트랜잭션이 적용되는 방식이다.
+- 프로그래밍 방식의 트랜잭션 관리(Programmatic Transaction Management)
+  - 트랜잭션 매니저 또는 트랜잭션 템플릿 등을 사용해서 트랜잭션 관련 코드를 직접 작성하는 것을 프로그래밍 방식의 트랜잭션 관리라 한다.
+
+- 선언적 트랜잭션 관리가 프로그래밍 방식에 비해 훨씬 간편하고 실용적이기 때문에 실무에서는 대부분 선언적 트랜잭션 관리를 사용한다.
+- 프로그래밍 방식의 트랜잭션 관리는 스프링 컨테이너나 스프링 AOP 기술 없이 간단히 사용할 수 있지만 실무에서는 대부분 스프링 컨테이너와 스프링 AOP를 사용하기 때문에 거의 사용되지 않는다.
+- 프로그래밍 방식 트랜잭션 관리는 테스트 시에 가끔 사용될 때는 있다.
+
+### 정리
+
+- 스프링이 제공하는 선언적 트랜잭션 관리 덕분에 드디어 트랜잭션 관련 코드를 순수한 비즈니스 로직에서 제거할 수 있었다.
+- 개발자는 트랜잭션이 필요한 곳에 `@Transactional`애노테이션 하나만 추가하면 된다. 나머지는 스프링 트랜잭션 AOP가 자동으로 처리해준다.
+- `@Transactional`애노테이션의 자세한 사용법은 뒤에서 설명한다. 지금은 전체 구조를 이해하는데 초점을 맞추자.
+
 ## 스프링 부트의 자동 리소스 등록
+
+이번에는 스프링 부트의 자동 리소스 등록에 대해서 알아보자.<br>
+스프링 부트가 등장하기 이전에는 데이터소싀와 트랜잭션 매니저를 개발자가 직접 스프링 빈으로 등록해서 사용했다.<br>
+그런데 스프링 부트로 개발을 시작한 개발자라면 데이터소스나 트랜잭션 매니저를 직접 등록한 적이 없을 것이다.
+
+이 부분을 잠시 살펴보자.
+
+### 데이터소스와 트랜잭션 매니저를 스프링 빈으로 직접 등록
+
+```java
+@Bean
+Datasource dataSource() {
+    return new DriverManagerDataSource(
+        URL, USERNAME, PASSWORD
+    );
+}
+
+@Bean
+DataSourceTransactionManager transactionManager() {
+    return new DataSourceTransactionManager(datasource());
+}
+```
+- 기존에는 이렇게 데이터소스와 트랜잭션 매니저를 직접 스프링 빈으로 등록해야 했다. 그런데 스프링 부트가 나오면서 많은 부분이 자동화되었다. (더 오래전에 스프링을 다루어왔다면 해당 부분을 주로 XML로 등록하고 관리했을 것이다.)
+
+
+### 데이터소스 - 자동 등록
+
+- 스프링 부트는 데이터소스(`DataSource`)를 스프링 빈에 자동으로 등록한다
+- 자동으로 등록되는 스프링 빈 이름: `dataSource`
+- 스프링 부트는 다음과 같이 `application.properties`에 있는 속성을 사용해서 `DataSource`를 생성한다. 그리고 스프링 빈에 등록한다.
+
+`application.properties`<br>
+```properties
+spring.datasource.url=jdbc:h2:tcp://localhost/~/jdbc
+spring.datasource.username=sa
+spring.datasource.password=
+```
+
+- 스프링 부트가 기본으로 생성하는 데이터 소스는 커넥션풀을 제공하는 `HikariDataSource`이다. 커넥션풀과 관련된 설정도 `application.properties`를 통해서 지정할 수 있다.
+- `spring.datasource.url`속성이 없으면 내장 데이터베이스(메모리 DB)를 생성하려고 시도한다.
+
+참고로 개발자가 직접 데이터소스를 빈으로 등록하면 스프링 부트는 데이터소스를 자동으로 등록하지 않는다.
+
+### 트랜잭션 매니저 - 자동 등록
+
+- 스프링 부트는 적절한 트랜재겻ㄴ 매니저(`PlatformTransactionManager`)를 자동으로 스프링 빈에 동록한다.
+- 자동으로 등록되는 스프링 빈 이름: `transactionManager`
+- 어떤 트랜잭션 매니저(구현체)를 선택할지(스프링 빈으로 등록할지)는 현재 등록된 라이브러리를 보고 판단하는데, JDBC를 기술로 사용하면 `JpaTransactionManager`를 빈으로 등록한다. 둘다 사용하는 경우 `JpaTransactionManager`를 등록한다. 참고로 `JpaTransactionManager`는 `DataSourceTransactionManager`가 제공하는 기능도 대부분 지원한다.
+- 참고로 개발자가 직접 트랜잭션 매니저를 빈으로 등록하면 스프링 부트는 트랜잭션 매니저를 자동으로 등록하지 않는다.
+
+### 데이버소스, 트랜잭션 매니저 직접 등록
+
+```java
+@TestConfiguration
+static class TestConfig {
+    @Bean
+    DataSource dataSource() {
+        return new DriverManagerDataSource(URL, USERNAME, PASSWORD);
+    }
+
+    @Bean
+    DataSourceTransactionManager transactionManager() {
+        return new DataSourceTransactionManager(dataSource());
+    }
+
+    @Bean
+    MemberRepositoryV3 memberRepositoryV3() {
+        return new MemberRepositoryV3(dataSource());
+    }
+
+    @Bean
+    MemberServiceV3_3 memberServiceV3_3() {
+        return new MemberServiceV3_3(memberRepositoryV3());
+    }
+}
+```
+
+이전에 작성한 코드이다. 이렇게 데이터소스와 트랜잭션 매니저를 직접 등록하면 스프링 부트는 데이터소스와 트랜잭션 매니저를 자동으로 등록하지 않는다.
+
+### 데이터 소스와 트랜잭션 매니저 자동 등록
+
+#### MemberServiceV3_4Test
+
+```java
+@Slf4j
+@SpringBootTest
+class MemberServiceV3_4Test {
+
+    public static final String MEMBER_A = "memberA";
+    public static final String MEMBER_B = "memberB";
+    public static final String MEMBER_EX = "ex";
+
+    @Autowired
+    private MemberRepositoryV3 memberRepository;
+    @Autowired
+    private MemberServiceV3_3 memberService;
+
+    @TestConfiguration
+    static class TestConfig {
+        /*
+        @Bean
+        DataSource dataSource() {
+            return new DriverManagerDataSource(URL, USERNAME, PASSWORD);
+        }
+
+        @Bean
+        DataSourceTransactionManager transactionManager() {
+            return new DataSourceTransactionManager(dataSource());
+        }
+
+         */
+
+        public final DataSource dataSource;
+
+        public TestConfig(DataSource dataSource) {
+            this.dataSource = dataSource;
+        }
+
+        @Bean
+        MemberRepositoryV3 memberRepositoryV3() {
+            return new MemberRepositoryV3(dataSource);
+        }
+
+        @Bean
+        MemberServiceV3_3 memberServiceV3_3() {
+            return new MemberServiceV3_3(memberRepositoryV3());
+        }
+    }
+```
+
+- 스프링 컨테이너에 등록된 스프링 빈을 주입받는다. (스프링 부트가 만들어준 데이터소스 빈을 주입, 참고로 @Autowired로 받아도 된다.)
+- 기존(`MemberServiceV3_3Test`)과 같은 코드이고 `TestConfig`부분만 다르다.
+- 데이터소스와 트랜잭션 매니저를 스프링 빈으로 등록하는 코드가 생략되었다. 따라서 스프링 부트가 `application.properties`에 지정된 속성을 참고해서 데이터소스와 트랜잭션 매니저를 자동으로 생성해준다.
+
+> [!TIP]
+> - 데이터소스와 트랜잭션 매니저는 스프링 부트가 제공하는 자동 빈 등록 기능을 사용하는 것이 편리하다
+> - 추가로 `application.properties`를 통해 설정도 편리하게 할 수 있다.
+> - 스프링 부트의 데이터 소스 자동 등록에 대한 자세한 내용은 다음 스프링 부트 공식 메뉴얼을 참고하자
+>   - https://docs.spring.io/spring-boot/docs/current/reference/html/data.html#data.sql.datasource.production
+> - 자세한 설명 속성은 다음을 참고하자
+>   - https://docs.spring.io/spring-boot/docs/current/reference/html/application-properties.html
+
+이번에는 3가지 문제(트랜잭션 문제, 예외 누수 문제, JDBC반복 문제)중, 스프링이 트랜잭션과 관련된 문제들을 어떻게 해결하는지 알아보았다.<br>
+다음 섹션에서는 예외 누수 문제를 어떻게 해결하는지 알아보자.
+
+# 자바 예외 이해
+
+## 예외 계층
+
+## 예외 기본 규칙
+
+## 체크 예외 기본 이해
+
+## 언체크 예외 기본 이해
+
+## 체크 예외 활용
+
+## 언체크 예외 활용
+
+## 예외 포함과 스텍 트레이스
