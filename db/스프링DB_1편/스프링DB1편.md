@@ -1,10 +1,12 @@
 # JDBC 이해
+
 ## 프로젝트 생성
 
 프로젝트 선택
+
 - Project: Gradle - Groovy Project
 - Language: Java
-- Spring Boot: 2.7.16 
+- Spring Boot: 2.7.16
 - Project Metadata
   - Group: hello
   - Artifact: jdbc
@@ -16,7 +18,6 @@
   - JDBC API
   - H2 Database
   - Lombok
-
 
 실행시 콘솔에 `Started JdbcApplication` 로그가 보이면 성공이다.
 
@@ -107,6 +108,7 @@ Oracle 드라이버 사용 <br>
 <img src="./imgs/JDBC이해/Oracle_드라이버_사용.png"><br>
 
 #### 정리
+
 - JDBC의 등장으로 다음 2가지 문제가 해결되었다.
   - 데이터베이스를 다른 종류의 데이터베이스로 변경하면 애플리케이션 서버의 데이터베이스 사용코드도 함께 변경해야하는 문제
     - 애플리케이션 로직은 이제 JDBC 표준 인터페이스에만 의존한다. 따라서 데이터베이스를 다른 종류의 데이터베이스로 변경하고 싶으면 JDBC 구현 라이브러리만 변경하면 된다. 따라서 다른 종류의 데이터베이스로 변경해도 애플리케이션 서버의 사용코드를 그대로 유지할 수 있다.
@@ -162,6 +164,7 @@ JDBC는 1997년에 출시될 정도로 오래된 기술이고, 사용하는 방�
 
 **ConnectionConst생성**<br>
 `src/main/java/hello/jdbc/connection/ConnectionConst.java`<br>
+
 ```java
 package hello.jdbc.connection;
 
@@ -178,6 +181,7 @@ public class ConnectionConst {
 
 **DBConnectionUtil생성**<br>
 `src/main/java/hello/jdbc/connection/DBConnectionUtil.java`<br>
+
 ```java
 package hello.jdbc.connection;
 
@@ -205,6 +209,7 @@ public class DBConnectionUtil {
     }
 }
 ```
+
 - 데이터베이스에 연결하려면 JDBC가 제공하는 `DriverManager.getConnection(...)`를 사용하면 된다. 이렇게 하면 라이브러리에 있는 데이터베이스 드라이버를 찾아서 해당 드라이버가 제공하는 커넥션을 반환해준다. 여기서는 H2 데이터베이스 드라이버가 작동해서 실제 데이터베이스와 커넥션을 맺고 그 결과를 반환해준다.
 - (참고) External Libraries > h2database 라이브러리 > Driver 클래스 참고 (org.h2.Driver)
 
@@ -250,6 +255,7 @@ class DBConnectionUtilTest {
 <img src="./imgs/JDBC이해/DriverManager_커넥션_요청_흐름.png"><br>
 
 JDBC가 제공하는 `DriverManager`는 라이브러리에 등록된 DB 드라이버들을 관리하고, 커넥션을 획득하는 기능을 제공한다.
+
 1. 애플리케이션 로직에서 커넥션이 필요하면 `DriverManager.getConnection()`을 호출한다
 2. `DriverManager`는 라이브러리에 등록된 드라이버 목록을 자동으로 인식한다. 이 드라이버들에게 순서대로 다음 정보를 넘겨서 커넥션을 획득할 수 있는지 확인한다.
    - URL: 예) `jdbc:h2:tcp://localhost/~/test`
@@ -260,7 +266,7 @@ JDBC가 제공하는 `DriverManager`는 라이브러리에 등록된 DB 드라�
 
 > [!TIP]
 > H2 데이터베이스 드라이버 라이브러리<br>
-> 
+>
 > runtimeOnly 'com.h2database:h2
 
 ## JDBC 개발 - 등록
@@ -272,6 +278,7 @@ JDBC가 제공하는 `DriverManager`는 라이브러리에 등록된 DB 드라�
 
 **Member 생성**<br>
 `src/main/java/hello/jdbc/domain`<br>
+
 ```java
 package hello.jdbc.domain;
 
@@ -370,27 +377,27 @@ public class MemberRepositoryV0 {
 `getConnection()`: 이전에 만들어둔 `DBConnectionUtil`를 통해서 데이터베이스 커넥션을 획득한다.
 
 **save() - SQL 전달**<br>
+
 - `sql`: 데이터베이스에 전달한 SQL을 정의한다. 여기서는 데이터를 등록해야 하므로 `insert sql`을 정의했다.
 - `con.prepareStatement(sql)`: 데이터베이스에 전달한 SQL과 파라미터로 전달할 데이터들을 준비한다.
   - `sql`: `insert into member(member_id, money) values(? , ?)"`
   - `pstmt.setString(1, member.getMemberId())`: SQL의 첫번째 `?`에 값을 지정한다. 문자이므로 `setString`을 사용한다.
   - `pstmt.setInt(2, member.getMoney())`: SQL의 두번째 `?`에 값을 저정한다. `Int`형 숫자이므로 `setInt`를 지정한다.
 - `pstmt.executeUpdate()`: `Statement`를 통해 준비된 SQL을 커넥션을 통해 실제 데이터베이스에 전달한다. 참고로 `executeUpdate()`은 `int`를 반환하는데, 영향받은 DB row수를 반환한다. 여기서는 하나의 row를 등록했으므로 1을 반환한다.
-  - 참고) executeUpdate()<br> 
+  - 참고) executeUpdate()<br>
     ```java
-        int executeUpdate() throws SQLException; 
+        int executeUpdate() throws SQLException;
     ```
 
 **리소스 정리**<br>
+
 - 쿼리를 실행하고 나면 리소스를 정의해야 한다. 여기서는 `Connection`, `PreparedStatement`를 사용했다.
 - 리소스를 정리할 때는 항상 역순으로 해야한다. `Connection`을 먼저 획득하고 `Connection`을 통해 `PreparedStatement`를 만들었기 때문에, 리소스를 반환할때는 `PreparedStatement`를 먼저 종료하고, 그 다음에 `Connection`을 종료하면 된다.<br> (참고로 여기서 사용하지 않은 `ResultSet`은 결과를 조회할 때 사용한다. 조금 뒤에 조회 부분에서 알아보자.)
 
 > [!WARNING]
 > 리소스 정리는 꼭! 해주어야 한다. 따라서 예외가 발생하든, 하지 않든 항상 수행되어야 하므로 `finally` 구문에 주의해서 작성해야 한다. 만약 이 부분을 놓치게 되면 커넥션이 끊어지지 않고 계속 유지되는 문제가 발생할 수 있다. 이런 것을 리소스 누수라고 하는데, 걸과적으로 커넥션 부족으로 장애가 발행할 수 있다.
 
-
-> [!TIP]
-> `PreparedStatment`는 `Statement`의 자식타입인데, `?`를 통한 파라미터 바인딩을 가능하게 해준다. (참고로 SQL injection 공격을 예방하려면 `PreparedStatment`를 통한 파라미터 바인딩 방식을 사용해야 한다.)
+> [!TIP] > `PreparedStatment`는 `Statement`의 자식타입인데, `?`를 통한 파라미터 바인딩을 가능하게 해준다. (참고로 SQL injection 공격을 예방하려면 `PreparedStatment`를 통한 파라미터 바인딩 방식을 사용해야 한다.)
 
 ### 테스트 코드
 
@@ -424,6 +431,7 @@ class MemberRepositoryV0Test {
 이번에는 JDBC를 통해 이전에 저장한 데이터를 조회하는 기능을 개발해보자.
 
 ### MemberRepositoryV0 - 회원 조회 추가(findById)
+
 ```java
 package hello.jdbc.repository;
 
@@ -525,10 +533,12 @@ public class MemberRepositoryV0 {
 ### 코드 분석
 
 **findById() - 쿼리 실행**<br>
+
 - `sql`: 데이터 조회를 위한 select SQL을 준비한다.
 - `rs = pstmt.executeQuery()`: 데이터를 변경할 때는 `executeUpdate()`를 사용하지만, 데이터를 조회할 때는 `executeQuery()`를 사용한다. `executeQuery()`는 결과를 `ResultSet`에 담아서 반환한다.
 
 **ResultSet**<br>
+
 - `ResultSet`은 다음과 같이 생긴 데이터 구조이다. 보통 select 쿼리의 결과가 순서대로 들어간다. (아래 ResultSet 결과 예시 참고)
   - 예를 들어서 `select member_id, money`라고 지정하면 `member_id`, `money`라는 이름으로 데이터가 저장된다.(참고로 `select *`을 사용하면 테이블의 모든 칼럼을 다 지정한다.)
 - `ResultSet`내부에 있는 커서(`cursor`)를 이동해서 다음 데이터를 조회할 수 있다. (ResultSet은 내부에서ㅓ 커서라는 것이 있는데, 이것을 이동해서 다음 데이터를 조회할 수 있다.)
@@ -582,6 +592,7 @@ class MemberRepositoryV0Test {
     }
 }
 ```
+
 중복으로 실행할 경우 PK 중복 오류가 발생한다. `delete from member`을 이용하자.
 
 실행 결과 로그를 확인해보자.<br>
@@ -674,6 +685,7 @@ Assertions.assertThatThrownBy(
 <img src="./imgs/커넥션_풀과_데이터소스_이해/데이터베이스_커넥션_획득.png"><br>
 
 데이터베이스 커넥션을 획득할 때는 다음과 같은 복잡한 과정을 거친다.
+
 1. 애플리케이션 로직은 DB 드라이버를 통해 커넥션을 조회한다.
 2. DB드라이버는 DB와 `TCP/IP`커넥션을 연결한다. 물론 이 과정에서 3way handshake와 같은 `TCP/IP` 연결을 위한 네트워크 동작이 발생한다.
 3. DB드라이버는 `TCP/IP` 커넥션이 연결되면 ID, PW와 기타 부가정보를 DB에 전달한다
@@ -714,6 +726,7 @@ Assertions.assertThatThrownBy(
 - 커넥션을 모두 사용하고 나면 이제는 커넥션을 종료하는 것이 아니라, 다음에 다시 사용할 수 있도록 해당 커넥션을 그래로 커넥션 풀에 반환하면 된다. 여기서 주의할 점은 커넥션을 종료하는 것이 아니라 커넥션이 살아있는 상태로 커넥션 풀에 반환해야 한다는 점이다.
 
 > [!NOTE]
+>
 > - 적절한 커넥션 풀 숫자는 서비스의 특징과 애플리케이션 서버 스펙, DB서버 스펙에 따라 다르기 때문에 성능 테스트를 통해 정해야 한다.
 > - 커넥션 풀은 서버당 최대 커넥션 수를 제한할 수 있다. 따라서 DB에 무한정 연결이 생성되는 것을 막아주어서 DB를 보호하는 효과도 있다.
 > - 이런 커넥션 풀은 얻는 이점이 매우 크기 때문에 **실무에서는 항상 기본으로 사용**한다.
@@ -754,6 +767,7 @@ Assertions.assertThatThrownBy(
 - **이 인터페이스의 핵심 기능은 커넥션 조회 하나이다.** (다른 일부 기능도 있지만 크게 중요하지 않다.)
 
 > [!NOTE]
+>
 > - 대부분의 커넥션 풀은 `DataSource` 인터페이스를 이미 구현해두었다. 따라서 개발자는 `DBCP2 커넥션 풀`, `HikariCP 커넥션 풀`의 코드를 직접 의존하는 것이 아니라, `DataSource`인터페이스에만 의존하도록 애플리케이션 로직을 작성하면 된다.
 > - 커넥션 풀 구현 기술을 변경하고 싶으면 해당 구현체로 갈아끼우기만 하면 된다.
 > - `DriverManager`는 `DataSource`인터페이스를 사용하지 않는다. 따라서 `DriverManager`는 직접 사용해야 한다. 따라서 `DriverManager`를 사용하다가 `DataSource`기반의 커넥션 풀을 사용하도록 변경하면 관련 코드를 다 고쳐야 한다. 이런 문제를 해결하기 위해 스프링은 `DriverManager`도 `DataSource`를 통해서 사용할 수 있도록 `DriverManagerDataSource`라는 `DataSource`를 구현한 클래스를 제공한다. (`DriverManagerDataSource`를 사용하면, 내부에서 `DriverManager`를 통해 커넥션을 항상 새로 생성하여 반환해준다.)
@@ -766,7 +780,9 @@ Assertions.assertThatThrownBy(
 먼저 기존에 개발했던 `DriverManager`를 통해서 커넥션을 획득하는 방법을 다시 한 번 확인해보자.
 
 ### ConnectionTest - 드라이버 매니저
+
 `test/java/hello/jdbc/connection/ConnectinoTest`<br>
+
 ```java
 package hello.jdbc.connection;
 
@@ -829,12 +845,14 @@ private void useDataSource(DataSource dataSource) throws SQLException {
 기존 `DriverManager`를 통해서 커넥션을 획득하는 방법과 `DataSource`를 통해서 커넥션을 획득하는 방법에는 큰 차이가 있다.
 
 **DriverManager**<br>
+
 ```java
 Connection con1 = DriverManager.getConnection(URL, USERNAME, PASSWORD);
 Connection con2 = DriverManager.getConnection(URL, USERNAME, PASSWORD);
 ```
 
 **Datasource**<br>
+
 ```java
     @Test
     void dataSourceDriverManager() throws SQLException {
@@ -1074,12 +1092,9 @@ class MemberRepositoryV1Test {
 - 웹 애플리케이션에 동시에 여러 요청이 들어오면 여러 쓰레드에서 커넥션 풀의 커넥션을 다양하게 가져가는 상황을 확인할 수 있다.
 
 > [!NOTE]
-> HikariProxyConnection 객체 인스턴스 주소는 다 다르다. Hikari에서는 커넥션 풀에서 커넥션을 반환해줄 때, HikariProxyConnection 이라는 객체를 생성하고, 거기에 실제 커넥션을 wrapping해서 반환한다. (따라서 HikariProxyConnection 객체 인스턴스 주소는 다 다르지만, 그 안에 실제 커넥션은 동일하다.)<br>
-> **핵심은 커넥션 풀을 사용하면, 같은 커넥션을 재사용할 수 있다는 점이다.**
+> HikariProxyConnection 객체 인스턴스 주소는 다 다르다. Hikari에서는 커넥션 풀에서 커넥션을 반환해줄 때, HikariProxyConnection 이라는 객체를 생성하고, 거기에 실제 커넥션을 wrapping해서 반환한다. (따라서 HikariProxyConnection 객체 인스턴스 주소는 다 다르지만, 그 안에 실제 커넥션은 동일하다.)<br> > **핵심은 커넥션 풀을 사용하면, 같은 커넥션을 재사용할 수 있다는 점이다.**
 
-> [!TIP]
-> **DI**<br>
-> `DriverManagerDataSource` -> `HikariDataSource`로 변경해도 `MemberRepositoryV1`의 코드는 전혀 변경하지 않아도 된다. `MemberRepositoryV1`는 `DataSource`인터페이에만 의존하기 때문이다. 이것이 `DataSource`를 사용하는 장점이다. (`MemberRepositoryV1`는 `DataSource` 인터페이스에만 의존한다. 구현체가 바뀌더라도 코드를 변경하지 않아도 된다.)
+> [!TIP] > **DI**<br> > `DriverManagerDataSource` -> `HikariDataSource`로 변경해도 `MemberRepositoryV1`의 코드는 전혀 변경하지 않아도 된다. `MemberRepositoryV1`는 `DataSource`인터페이에만 의존하기 때문이다. 이것이 `DataSource`를 사용하는 장점이다. (`MemberRepositoryV1`는 `DataSource` 인터페이스에만 의존한다. 구현체가 바뀌더라도 코드를 변경하지 않아도 된다.)
 
 # 트랙잭션 이해
 
@@ -1218,7 +1233,7 @@ insert into meber(member_id, money) values ('data2', 10000); //자동커밋
 ### 수동 커밋 설정
 
 ```sql
-set autocommit false; //수동 커밋 
+set autocommit false; //수동 커밋
 insert into meber(member_id, money) values ('data3', 10000); //자동커밋
 insert into meber(member_id, money) values ('data4', 10000); //자동커밋
 commit; //수동 커밋
@@ -1227,7 +1242,7 @@ commit; //수동 커밋
 - 보통 자동 커밋 모드가 기본으로 설정된 경우가 많기 때문에, 수동 커밋 모드로 설정하는 것을 트랜잭션을 시작한다고 표현할 수 있다.
 - 수동 커밋 설정을 하면 이후에 꼭 `commit`, `rollback`을 호출해야 한다. (호출하지 않으면, 데이터가 실제 DB에 반영되지 않는다.)
   - (참고) 호출하지 않고 DB 트랜잭션 수행 타임아웃 설정시간을 넘어가게 되면, 자동으로 롤백된다. (트랜잭션 수행 타임아웃 시간은 DB마다 다르니 참고하자)
-  
+
 참고로 수동 커밋 모드나 자동 커밋 모드는 한번 설정하면 해당 세션에서는 계속 유지도니다. 중간에 변경하는 것은 가능하다.
 
 이제 본격적으로 트랜잭션 예제를 실습해보자.
@@ -1265,6 +1280,7 @@ set autocommit false; //수동커밋모드
 insert into member(member_id, money) values ('newId1', 10000);
 insert into member(member_id, money) values ('newId2', 10000);
 ```
+
 세션1, 세션2에서 `select * from member;`쿼리를 실행해서 결과를 확인하자
 
 결과를 비교하면 아직 세션1이 커밋을 하지 않은 상태이기 때문에 세션1에서는 입력한 데이터가 보이지만, 세션 2에서는 입력한 데이터가 보이지 않은 것을 확인할 수 있다.
@@ -1284,6 +1300,7 @@ insert into member(member_id, money) values ('newId2', 10000);
 <img src="./imgs/트랜잭션_이해/2-1세팅.png"><br>
 
 기본 데이터 SQL<br>
+
 ```sql
 set autocommit true;
 delete from member;
@@ -1398,6 +1415,7 @@ select * from member
 - 아래 쿼리에서 두 번째 SQL은 `member_idddd`라는 필드에 오타가 있다. 두 번째 update 쿼리를 실행하면 SQL 오류가 발생하는 것을 확인할 수 있다.
 
 **계좌이체 실행 SQL - 오류**<br>
+
 ```sql
 set autocommit false;
 
@@ -1490,6 +1508,7 @@ select * from member;
 - 다음 예시를 통해 동시에 데이터를 수정하는 문제를 락으로 어떻게 해결하는지 자세히 알아보자.
 
 ### 락1
+
 <img src="./imgs/트랜잭션_이해/락1.png"><br>
 
 1. 세션1은 트랙잭션을 시작한다.
@@ -1538,6 +1557,7 @@ select * from member;
 <img src="./imgs/트랜잭션_이해/락0.png"><br>
 
 기본 데이터 입력<br>
+
 ```sql
 set autocommit true;
 delete from member;
@@ -1602,6 +1622,7 @@ COMMIT;
 세션2는 커밋을 수행하고 트랜잭션이 종료되었으므로 락을 반납한다.
 
 **세션2 - 커밋**<br>
+
 ```sql
 COMMIT;
 ```
@@ -1627,7 +1648,7 @@ COMMIT;
 
 ### 조회와 락
 
-데이터를 조회할 때도 락을 획득하고 싶을때가 있다. 이럴 때는 select for update구문을 사용하면 된다. 이렇게 하면 세션1이 조회 시점에을 가져가버리기 때문에 다른 세션에서 해당 데이터를 변경할 수 없다. 물론 이 경우도 트랙잭션을 커밋하면 반납한다. 
+데이터를 조회할 때도 락을 획득하고 싶을때가 있다. 이럴 때는 select for update구문을 사용하면 된다. 이렇게 하면 세션1이 조회 시점에을 가져가버리기 때문에 다른 세션에서 해당 데이터를 변경할 수 없다. 물론 이 경우도 트랙잭션을 커밋하면 반납한다.
 
 ### 조회 시점에 락이 필요한 경우는 언제일까?
 
@@ -1644,7 +1665,7 @@ delete from member;
 insert into member(member_id, money) values ('memberA', 10000);
 ```
 
-***세션 1**<br>
+**\*세션 1**<br>
 
 ```sql
 set autocommit false;
@@ -2128,6 +2149,7 @@ class MemberServiceV2Test {
 ## 문제점들
 
 ### 애플리케이션 구조
+
 여러가지 애플리케이션 구조가 있지만, 가장 단순하면서 많이 사용하는 방법은 역할에 따라 3가지 계층으로 나누는 것이다.
 
 <img src="./imgs/트랜잭션/애플리케이션_구조.png"><br>
@@ -2260,11 +2282,13 @@ public class MemberServiceV2 {
 ### 문제 정리
 
 지금까지 개발한 애플리케이션의 문제점은 크게 3가지이다.
+
 1. 트랜잭션 문제
 2. 예외 누수 문제
 3. JDBC 반복 문제
 
 ### 트랜잭션 문제
+
 가장 큰 문제는 트랜잭션을 적용하면서 생긴 다음과 같은 문제들이다.
 
 - JDBC 구현 기술이 서비스 계층에 누수되는 문제
@@ -2280,6 +2304,7 @@ public class MemberServiceV2 {
   - 트랜잭션 적용 코드를 보면 반복이 많다. `try`, `catch`, `finally`, ...
 
 ### 예외 누수
+
 - 데이터 접근 계층의 JDBC 구현 기술 예외가 서비스 계층으로 전파된다.
 - `SQLException`은 체크 예외이기 때문에 데이터 접근 계층을 호출한 서비스 계층에서 해당 예외를 잡아서 처리하거나 명시적으로 `throws`를 통해서 다시 밖으로 던져야 한다.
 - `SQLException`은 JDBC 전용기술이다. 향후 JPA나 다른 데이터 접근 기술을 사용하면, 그에 맞는 단른 예외로 변경해야 하고, 결국 서비스 코드도 수정해야 한다.
@@ -2375,6 +2400,7 @@ public static void main(String[] args) {
 아주 단순하게 생각하면 다음과 같은 인터페이스를 만들어서 사용하면 된다.
 
 **트랜잭션 추상화 인터페이스**<br>
+
 ```java
 public interface TxManager {
     begin();
@@ -2450,8 +2476,7 @@ public interface PlatformTransactionManager extends TransactionManager {
   3. 리포지토리는 트랜잭션 동기화 매니저에 보관된 커넥션을 꺼내서 사용한다. 따라서 파라미터로 커넥션을 전달하지 않아도 된다.
   4. 트랜잭션이 종료되면 트랜잭션 매니저는 트랜잭션 동기화 매니저에 보관된 커넥션을 통해 트랜잭션을 종료하고, 커넥션도 닫는다.
 
-> [!TIP]
-> **트랜잭션 동기화 매니저**<br>다음 트랜잭션 동기화 매니저 클래스를 열어보면 쓰레드 로컬을 사용하는 것을 확인할 수 있다.<br>`org.springframework.transaction.support.TransactionSynchronizationManager`<br><br>쓰레드 로컬을 사용하면 각각의 쓰레드마다 별도의 저장소가 부여된다. 따라서 해당 쓰레드만 해당 데이터에 접근할 수 있다.
+> [!TIP] > **트랜잭션 동기화 매니저**<br>다음 트랜잭션 동기화 매니저 클래스를 열어보면 쓰레드 로컬을 사용하는 것을 확인할 수 있다.<br>`org.springframework.transaction.support.TransactionSynchronizationManager`<br><br>쓰레드 로컬을 사용하면 각각의 쓰레드마다 별도의 저장소가 부여된다. 따라서 해당 쓰레드만 해당 데이터에 접근할 수 있다.
 
 ## 트랜잭션 문제 해결 - 트랜잭션 매니저 1
 
@@ -2506,10 +2531,10 @@ public class MemberRepositoryV3 {
 
 ### 코드 분석
 
-- **DataSourceUtils.getConnection()
+- \*\*DataSourceUtils.getConnection()
   - `getConnection()`에서 `DataSourceUtils.getConnection()`를 사용하도록 변경된 부분을 특히 주의해야 한다.
   - `DataSourceUtils.getConnection()`는 다음과 같이 동작한다
-    - **트랜잭션 동기화 매니저가 관리하는 커넥션이 있으면 해당 커넥션을 반환한다.
+    - \*\*트랜잭션 동기화 매니저가 관리하는 커넥션이 있으면 해당 커넥션을 반환한다.
     - 트랜잭션 동기화 매니저가 관리하는 커넥션이 없는 경우 새로운 커넥션을 생성해서 반환한다.
 - **DataSourceUtils.releaseConnection()**
   - `close()`에서 `DataSourceUtils.releaseConnection()`를 사용하도록 변경된 부분을 특히 주의해야 한다. 커넥션을 `con.close`를 사옹해서 직접 닫아버리면 커넥션이 유지되지 않는 문제가 발생한다. 이 커넥션은 이후 로직은 물론이고, 트랜잭션을 종료(커밋, 롤백)할 때 까지 살아있어야 한다.
@@ -2683,6 +2708,7 @@ class MemberServiceV3_1Test {
 <img src="./imgs/트랜잭션/트랜잭션_매니저1-트랜잭션_시작.png"><br>
 
 - 클라이언트의 요청으로 서비스 로직을 실행한다.
+
 1. 서비스 계층에서 `transactionManager.getTransaction()`을 호출해서 트랜잭션을 시작한다.
 2. 트랜잭션을 시작하려면 먼저 데이터베이스 커넥션이 필요하다. 트랜잭션 매니저는 내부에서 데이터소스를 사용해서 커넥션을 생성한다.
 3. 커넥션을 수동 커밋모드로 변경해서 실제 데이터베이스 트랜잭션을 시작한다.
@@ -2710,6 +2736,7 @@ class MemberServiceV3_1Test {
     - `con.close()`를 호출해서 커넥션을 종료한다. 커넥션 풀을 사용하는 경우 `con.close()`를 호출하면 커넥션 풀에 반환된다.
 
 > [!NOTE]
+>
 > - 트랜잭션 추상화 덕분에 서비스 코드는 이제 JDBC 기술에 의존하지 않는다.<br>(PlatformTransactionManager에 의존한다.)
 >   - 이후 JDBC에서 JPA로 변경해도 서비스 코드를 그대로 유지할 수 있다.
 >   - 기술 변경시 의존관계 주입만 `DataSourceTransactionManager`에서 `JpaTransactionManager`로 변경해주면 된다.
@@ -2752,6 +2779,7 @@ try {
 템플릿 콜백 패턴을 적용하려면 템플릿을 제공하는 클래스를 작성해야 하는데, 스프링은 `TransactionTemplate`라는 템플릿 클래스를 제공한다
 
 **TransactionTemplate 참고**<br>
+
 ```java
 public class TransactionTemplate {
 
@@ -2838,6 +2866,7 @@ class MemberServiceV3_2Test {
 ```
 
 > [!NOTE]
+>
 > - 트랜잭션 템플릿 덕분에, 트랜잭션을 사용할 때 반복하는 코드를 제거할 수 있었다.
 > - 핮만 이곳은 서비스 로직인데 비즈니스 로직 뿐만 아니라 트랜잭션을 처리하는 기술 로직이 함께 포함되어 있다
 > - 애플리케이션을 구성하는 로직을 핵심 기능과 부가 기능을 구분하자면 서비스 입장에서 비즈니스 로직은 핵심 기능이고, 트랜잭션은 부가 기능이다.
@@ -2881,6 +2910,7 @@ try {
 
 프록시를 사용하면 트랜잭션을 처리하는 객체와 비즈니스 로직을 처리하는 서비스 객체를 명확하게 분리할 수 있다.<br>
 **트랜잭션 프록시 코드 예시**<br>
+
 ```java
 public class TransactionProxy {
     private MemberService target;
@@ -2901,6 +2931,7 @@ public class TransactionProxy {
 ```
 
 **트랜잭션 프록시 적용 후 서비스 코드 예시**<br>
+
 ```java
 public class Service {
     public void logic() {
@@ -3076,6 +3107,7 @@ void AopCheck() {
   - `@Transactional` 애노테이션 하나만 선언해서 매우 편리하게 트랜잭션을 적용하는 것을 선언적 트랜잭션 관리라 한다.
   - 선언적 트랜잭션 관리는 과거 XML에 설정하기도 했다. 이름 그대로 해당 로직에 트랜잭션을 적용하겠다라고 어딘가에 선언하기만 하면 트랜잭션이 적용되는 방식이다.
 - 프로그래밍 방식의 트랜잭션 관리(Programmatic Transaction Management)
+
   - 트랜잭션 매니저 또는 트랜잭션 템플릿 등을 사용해서 트랜잭션 관련 코드를 직접 작성하는 것을 프로그래밍 방식의 트랜잭션 관리라 한다.
 
 - 선언적 트랜잭션 관리가 프로그래밍 방식에 비해 훨씬 간편하고 실용적이기 때문에 실무에서는 대부분 선언적 트랜잭션 관리를 사용한다.
@@ -3111,8 +3143,8 @@ DataSourceTransactionManager transactionManager() {
     return new DataSourceTransactionManager(datasource());
 }
 ```
-- 기존에는 이렇게 데이터소스와 트랜잭션 매니저를 직접 스프링 빈으로 등록해야 했다. 그런데 스프링 부트가 나오면서 많은 부분이 자동화되었다. (더 오래전에 스프링을 다루어왔다면 해당 부분을 주로 XML로 등록하고 관리했을 것이다.)
 
+- 기존에는 이렇게 데이터소스와 트랜잭션 매니저를 직접 스프링 빈으로 등록해야 했다. 그런데 스프링 부트가 나오면서 많은 부분이 자동화되었다. (더 오래전에 스프링을 다루어왔다면 해당 부분을 주로 XML로 등록하고 관리했을 것이다.)
 
 ### 데이터소스 - 자동 등록
 
@@ -3121,6 +3153,7 @@ DataSourceTransactionManager transactionManager() {
 - 스프링 부트는 다음과 같이 `application.properties`에 있는 속성을 사용해서 `DataSource`를 생성한다. 그리고 스프링 빈에 등록한다.
 
 `application.properties`<br>
+
 ```properties
 spring.datasource.url=jdbc:h2:tcp://localhost/~/jdbc
 spring.datasource.username=sa
@@ -3224,6 +3257,7 @@ class MemberServiceV3_4Test {
 - 데이터소스와 트랜잭션 매니저를 스프링 빈으로 등록하는 코드가 생략되었다. 따라서 스프링 부트가 `application.properties`에 지정된 속성을 참고해서 데이터소스와 트랜잭션 매니저를 자동으로 생성해준다.
 
 > [!TIP]
+>
 > - 데이터소스와 트랜잭션 매니저는 스프링 부트가 제공하는 자동 빈 등록 기능을 사용하는 것이 편리하다
 > - 추가로 `application.properties`를 통해 설정도 편리하게 할 수 있다.
 > - 스프링 부트의 데이터 소스 자동 등록에 대한 자세한 내용은 다음 스프링 부트 공식 메뉴얼을 참고하자
@@ -3238,11 +3272,344 @@ class MemberServiceV3_4Test {
 
 ## 예외 계층
 
+스프링이 제공하는 예외 추상화를 이해하기 위해서는 먼저 자바 기본 예외에 대한 이해가 필요하다.<br>
+예외는 자바 언어의 기본 문법에 들어가기 때문에 대부분 아는 내용일 것이다.<br>
+예외의 기본 내용을 간단히 복습하고, 실무에 필요한 체크 예외와 언체크 예외의 차이와 활용 방안에 대해서도 알아보자.
+
+<img src="./imgs/자바_예외_이해/예외_계층.png"><br>
+
+- `Object`: 예외도 객체이다. 모든 객체의 최상위 부모 `Object` 이므로 예외의 최상위 부모도 `Object`이다.
+- `Throwable`: 최상위 예외이다. 하위에 `Exception`과 `Error`가 있다.
+- `Error`: 메모리 부족이나 심각한 시스템 오류와 같이 애플리케이션에서 복구 불가능한 시스템 예외이다. 애플리케시녀 개발자는 이 예오를 잡으려고 해서는 안된다.
+  - 상위 예외를 `catch`로 잡으면 그 하위 예외까지 함께 잡는다. 따라서 애플리케이션 로직에서는 `Throwavle`예외도 잡으면 안되는데, 앞서 이야기한 `Error`예외도 함께 잡을 수 있기 때문이다. 애플리케이션 로직은 이런 이유로 `Exception`부터 필요한 예외로 생각하고 잡으면 된다.
+  - 참고로 `Error`도 언체크 예외이다.
+- `Exception`: 체크 예외
+  - 애플리케이션 로직에서 사용할 수 있는 실질적인 최상위 예외이다.
+  - `Exception`과 그 하위 예외는 모두 컴파일러가 체크하는 체크 예욍이다.( 단 `RuntimeException`은 예외로 한다.)
+- `RuntimeException`: 언체크 예외, 런타임 예외
+  - 컴파일러가 체크하지 않는 언체크 예외이다.
+  - `RuntimeException`과 그 자식 예외는 모두 언체크 예외아다.
+  - `RuntimeException`의 이름을 따라서 `RuntimeException`과 그 하위 언체크 예외를 **런타임 예외**라고 많이 부른다. 여기서도 앞으로는 런타임 예외로 종종 부르겠다.
+
 ## 예외 기본 규칙
+
+예외의 기본 규칙에 대해서 알아보자<br>
+예외는 폭탄 돌기기와 같다. 예외가 발생하면 잡아서 처리하거나, 처리할 수 없으면 밖으로 던져야 한다.
+
+**예외 처리**<br>
+
+<img src="./imgs/자바_예외_이해/예외_처리.png"><br>
+
+5번에서 예외를 처리하면 이후에는 애플리케이션 로직이 정상 흐름으로 동작한다.
+
+<img src="./imgs/자바_예외_이해/예외_던짐.png"><br>
+
+예외를 철하지 못하면 호출한 곳으로 예외를 계속 던지게 된다.
+
+### 예외에 대한 2가지 규칙
+
+1. 예외는 잡아서 처리하거나 던져야 한다
+2. 예외를 잡거나 던질 때 예외뿐만 아니라 그 예외의 자식들도 함께 처리된다.
+   - 예를 들어서 `Exception`을 `catch`로 잡으면 그 하위 예외들도 모두 잡을 수 있다.
+   - 예를 들어서 `Exception`을 `throws`로 던지면 그 하위 예외들도 모두 던질 수 있다.
+
+> [!TIP]
+> 예외를 처리하지 못하고 계속 던지면 어떻게 될까?
+>
+> - 자바 `main()`쓰레드의 경우 예외 로그를 출력하면서 시스템이 종료된다.
+> - 웹 애플리케이션의 경우 여러 사용자의 요청을 처리하기 때문에 하나의 예외 때문에 시스템이 종료되면 안된다. WAS가 해당 예외를 받아서 처리하는데, 주로 사용자에게 개발자가 지정한, 오류 페이지를 보여준다.
+
+다음으로 체크 예외와 언체크 예외의 차이에 대해서 코드로 알아보자.
 
 ## 체크 예외 기본 이해
 
+- `Exception`과 그 하위 예외는 모두 컴파일러가 체크하는 체크 예외이다. 단 `RuntimeException`은 예외로 한다.
+- 체크 예외는 잡아서 처리하거나, 또는 밖으로 던지도록 선언해야 한다. 그렇지 않으면 컴파일 오류가 발생한다.
+
+코드로 이해해보자.
+
+### CheckedTest
+
+```java
+package hello.jdbc.exception.basic;
+
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+public class CheckedTest {
+
+    //Exception을 상속받은 예외는 체크 예외가 된다.
+    static class MyCheckedException extends Exception {
+        public MyCheckedException(String message) {
+            super(message);
+        }
+    }
+
+    //(Checked 예외는) 예외를 잡아서 처리하거나, 던지거나 둘중 하나를 필수로 선택해야 한다.
+    static class Service {
+        Repository repository = new Repository();
+
+        //1) 예외를 잡아서 처리하는 코드
+        public void calCatch() {
+            try {
+                repository.call();
+            } catch (MyCheckedException e) {
+                //예외처리 코드
+                log.info("예외 처리, message={}", e.getMessage(), e);
+            }
+        }
+
+        //2) 체크 예외를 밖으로 던지는 코드
+        public void callThrow() throws MyCheckedException {
+            repository.call();
+        }
+    }
+
+    static class Repository {
+        public void call() throws MyCheckedException {
+            throw new MyCheckedException("ex");
+        }
+    }
+}
+```
+
+(참고) 체크 예외는 예외를 잡지 않고 밖으로 던지려면 `throws 예외`를 메서드에 필수로 선언해야 한다.
+
+**테스트 코드를 추가해보자**<br>
+
+```java
+@Test
+void checked_catch() {
+    Service service = new Service();
+    service.callCatch();
+}
+
+@Test
+void checked_throw() {
+    Service service = new Service();
+    Assertions.assertThatThrownBy(() -> service.callThrow()).isInstanceOf(MyCheckedException.class);
+}
+```
+
+### 코드 분석
+
+#### Exception을 상속받은 예외는 체크 예외가 된다.
+
+```java
+static class MyCheckedException extends Exception {
+    public MyCheckedException(String message) {
+        super(message);
+    }
+}
+```
+
+- `MyCheckedException`는 `Exception`을 상속받았다. `Exception`을 상속받으면 체크 예외가 된다.
+- 참고로 `RuntimeException`을 상속받으면 언체크 예외가 된다. 이런 규칙은 자바언어에서 문법으로 정한 것이다.
+- 예외가 제공하는 여러가지 기본 기능이 있는데, 그 중에 오류 메시지를 보관하는 기능도 있다. 예제에서 보는 것 처럼 생성자를 통해서 해당 기능을 그대로 사용하면 편리하다.
+
+#### 체크 예외를 잡아서 처리하는 코드
+
+```java
+public void callCatch() {
+    try {
+        repository.call();
+    } catch (MyCheckedExceptoin e) {
+        log.info("예외 처리, message={}", e.getMessage(), e);
+    }
+}
+```
+
+- 체크 예외를 잡아서 처리하려면 `catch(...)`를 사용해서 예외를 잡으면 된다.(여기서는 `MyCheckedException` 예외를 잡아서 처리한다.)
+- catch는 해당 타입과 그 하위 타입을 모두 잡을 수 있다.
+  - `catch`에 `MyCheckedException`의 상위 타입인 `Exception`을 적어주어도 `MyCheckedException`을 잡을 수 있다.
+  - `catch`에 예외를 지정하면 해당 예외와 그 하위 타입 예외를 모두 잡아준다.
+  - 물론 정확하게 `MyCheckedException`만 잡고 싶다면 `catch`에 `MyCheckedException`을 적어주어야 한다.
+
+#### 실행 코드
+
+```java
+@Test
+void checkeed_catch() {
+    Service service = new Service();
+    service.callCatch();
+}
+```
+
+- `Repository.call()`에서 `MyCheckedException`예외가 발생하고, 그 예외를 `service.callCatch()`에서 잡는 것을 확인할 수 있다.
+- `service.callCatch()`에서 예외를 처리했기 때문에 테스트 메서드까지 예외가 올라오지 않는다.
+
+**실행 흐름을 분석해보자**<br>
+
+1. `test` -> `service.callCatch()` -> `repository.call() [예외발생, 던짐]`
+2. `test` <- `service.callCatch() [예외 처리]` <- `repository.call()`
+3. `test [정상흐름]` <- `service.callCatch()` <- `repository.call()`
+
+#### 예외를 처리하지 않고, 밖으로 던지는 코드
+
+```java
+public void callThrow() throws MyCheckedException {
+    repository.call();
+}
+```
+
+- 체크 예외를 처리할 수 없을 때는 `method() throws 예외`을 사용해서 밖으로 던질 예외를 필수로 지정해 주어야 한다. (여기서는 `MyCheckedException`을 밖으로 던지도록 지정해주었다.)
+- `throws`를 지정하지 않으면 컴파일 오류가 발생한다. (`Unhandled exception: hello.jdbc.exception.basic.CheckedTest.MyCheckedException`)
+- 체크 예외의 경우 예외를 잡아서 처리하거나 또는 `throws`를 지정해서 예외를 밖으로 던진다는 선언을 필수로 해주어야 한다.
+- 참고로 체크 예외를 밖으로 던지는 경우에도 해당 타입과 그 하위 타입을 모두 던질 수 있다.
+  - `throws`에 `MyCheckedException`의 상위 타입인 `Exception`을 적어주어도 `MyCheckedException`을 던질 수 있다.
+  - `throws`에 지정한 타입과 그 하위 타입 예외를 밖으로 던진다.
+  - 물론 정확하게 `MyCheckedException`만 밖으로 던지고 싶다면 `throws`에 `MyCheckedException`을 적어주어야 한다.
+
+#### 실행 코드
+
+```java
+@Test
+void checked_throw() {
+  Service service = new Service();
+  Assertions.assertThatThrownBy(() -> service.callThrow())
+          .isInstanceOf(MyCheckedException.class);
+}
+```
+
+- `service.callThrow()`에서 예외를 처리하지 않고, 밖으로 던졌기 때문에 예외가 테스트 메서드까지 올라온다.
+- 테스트에서는 기대한 것 처럼 `MyCheckedException`예외가 던져지면 성공으로 처리한다.
+
+**실행 흐름을 분석해보자**<br>
+
+1. `test` -> `service.callCatch()` -> `repository.call() [예외발생, 던짐]`
+2. `test` <- `service.callCatch() [예외 던짐]` <- `repository.call()`
+3. `test [예외 도착]` <- `service.callCatch()` <- `repository.call()`
+
+### 체크 예외의 장단점
+
+체크 예외는 예외를 잡아서 처리할 수 없을 때, 예외를 밖으로 던지는 `throws`예외를 필수로 선언해야 한다. 그렇지 않으면 컴파일 오류가 발생한다. 이것 때문에 장점과 단점이 동시에 존재한다.
+
+- 장점: 개발자 실수로 예외를 누락하지 않도록 컴파일러를 통해 문제를 잡아주는 훌륭한 안전장치이다.
+- 단점: 하지만 실제로는 개발자가 모든 체크 예외를 반드시 잡거나 던지도록 처리해야 하기 때문에, 너무 번거로운 일이 된다. 크게 신경쓰고 싶지 않은 예외까지 모두 챙겨야 한다. 추가로 외존관계에 따른 단점도 있는데 이 부분은 뒤에서 설명하겠다.
+
 ## 언체크 예외 기본 이해
+
+- `RuntimeException`과 그 하위 예외는 언체크 예외로 분류된다.
+- 언체크 예외는 말 그대로 컴파일러가 예외를 체크하지 않는다는 뜻이다
+- 언체크 예외는 체크 예외와 기본적으로 동일하다. 차이가 있다면 예외를 던지는 `throws`를 선언하지 않고, 생략할 수 있따. 이 경우 자동으로 예외를 던진다.
+
+### 체크 예외 vs 언체크 예외
+
+- 체크 예외: 예오이를 잡아서 처리하지 않으면 항상 `throws`에 던지는 예외를 선언해야 한다.
+- 언체크 예외: 예외를 잡아서 처리하지 않아도 `throws`를 생략할 수 있다.
+
+### UncheckedTest생성
+
+```java
+package hello.jdbc.exception.basic;
+
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+public class UncheckedTest {
+
+    //RuntimeException을 상속받은 예외는 언체크 예외가 된다
+    static class MyUncheckedException extends RuntimeException {
+        public MyUncheckedException(String message) {
+            super(message);
+        }
+    }
+
+    //Unchecked 예외는 잡거나, 던지지 않아도 된다. (예외를 잡지 않으면 자동으로 밖으로 던진다.)
+    static class Service {
+        Repository repository = new Repository();
+
+        //필요한 경우 예외를 잡아서 처리하면 된다.
+        public void callCatch() {
+            try {
+                repository.call();
+            } catch (MyUncheckedException e) {
+                //예외처리 로직
+                log.info("예외 처리, mesage={}", e.getMessage(), e);
+            }
+        }
+
+        //예외를 잡지 않아도 된다. 져연스럽게 상위로 넘어간다.
+        //체크 예외와 다르게 throws예외를 선언 하지 않아도 된다.
+        public void callThrow() {
+            repository.call();
+        }
+    }
+
+    static class Repository {
+        public void call() {
+            throw new MyUncheckedException("ex");
+        }
+    }
+}
+```
+
+테스트 코드를 추가하자
+
+```java
+@Test
+void unchecked_catch() {
+    Service service = new Service();
+    service.callCatch();
+}
+
+@Test
+void unchecked_throw() {
+    Service service = new Service();
+    Assertions.assertThatThrownBy(() -> service.callThrow())
+            .isInstanceOf(MyUncheckedException.class);
+}
+```
+
+### 코드 분석
+
+**언체크 예외를 잡아서 처리하는 코드**
+
+```java
+public void callCatch() {
+    try {
+        repository.call();
+    } catch (MyUncheckedException e) {
+        //예외처리 로직
+        log.info("예외 처리, mesage={}", e.getMessage(), e);
+    }
+}
+```
+
+언체크 예외도 필요한 경우 이렇게 잡아서 처리할 수 있다.
+
+**언체크 예외를 밖으로 던지는 코드 - 생략**
+
+```java
+public void callThrow() {
+    repository.call();
+}
+```
+
+언체크 예외는 체크 예외와 다르게 `throws 예외`를 선언하지 않아도 된다.<br>
+말 그대로 컴파일러가 이런 부분을 체크하지 않기 때문에 언체크 예외이다.
+
+**언체크 예외를 밖으로 던지는 코드 - 선언**<br>
+
+```java
+public void callThrow() throws MyUncheckedException {
+    repository.call();
+}
+```
+
+참고로 언체크 예외도 `throws 예외`를 선언해도 된다. 물론 생략할 수 있다.<br>
+언체크 예외는 주로 생략 하지만, 중요한 예외의 경우 이렇게 선언해두면 해당 코드를 호출하는 개발자가 이런 예외가 발생한다는 점을 IDE를 통해 좀 더 편리하게 인지할 수 있다. (컴파일 시점에 막을 수 있는 것은 아니고, IDE를 통해서 인지할 수 있는 정도이다.)
+
+### 언체크 예외의 장단점
+
+언체크 예외는 예외를 잡아서 처리할 수 없을 때, 예외를 밖으로 던지는 `throws 예외`를 생략할 수 있다.<br>
+이것 때문에 장점과 단점이 동시에 존재한다.
+
+- 장점: 신겅쓰고 싶지 않은 언체크 예외를 무시할 수 있다. 체크 예외의 경우, 처리할 수 없는 예외를밖으로 던지려면 항상 `throws 예외`를 선언해야 하지만, 언체크 예외는 이 부분을 생략할 수 있다. 이후에 설명을 하겠지만, 신경쓰고 싶지 않은 예외의 의존관계를 참조하지 않아도 되는 장점이 있다.
+- 단점: 언체크 예외는 개발자가 실수로 예외를 누락할 수 있다. 반면에 체크 예외는 컴파일러를 톤해 예외 누락을 잡아준다.
+
+> [!TIP]
+> 체크 예외와 언체크 예외의 차이는 사실 예외를 처리할 수 없을 때 예외를 밖으로 던지는 부분에 있다. 이 부분을 필수로 선언해야 하는가 생략할 수 있는가의 차이다.
 
 ## 체크 예외 활용
 
