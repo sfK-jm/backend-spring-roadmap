@@ -3755,4 +3755,642 @@ public class CheckedAppTest {
 
 ## 언체크 예외 활용
 
+이번에는 런타임 예외를 사용해보자.
+
+<img src="./imgs/자바_예외_이해/런타임_예외_사용_참고.png"><br>
+
+- `SQLException`을 런타임 예외인 `RuntimeSQLException`으로 변환했다.
+- `ConnectException`대신에 `RuntimeSQLException`을 사용하도록 바꾸었다.
+- 런타임 예외이기 때문에 서비스, 컨트롤러는 해당 예외들을 처리할 수 없다면 별도의 선언 없이 그냥 두면 된다.
+
+### UncheckedAppTest 생성
+
+```java
+package hello.jdbc.exception.basic;
+
+import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import java.sql.SQLException;
+
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+public class UncheckedAppTest {
+
+    @Test
+    void unchecked() {
+        Controller controller = new Controller();
+        assertThatThrownBy(() -> controller.request())
+                .isInstanceOf(Exception.class);
+    }
+
+    static class Controller {
+        Service service = new Service();
+
+        public void request() {
+            service.logic();
+        }
+    }
+
+    static class Service {
+        Repository repository = new Repository();
+        NetworkClient networkClient = new NetworkClient();
+
+        public void logic() {
+            repository.call();
+            networkClient.call();
+        }
+
+    }
+
+    static class NetworkClient {
+        public void call() {
+            throw new RuntimeException("연결 실패");
+        }
+
+    }
+
+    static class Repository {
+        public void call() {
+            try {
+                runSQL();
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        public void runSQL() throws SQLException {
+            throw new SQLException("ex");
+        }
+    }
+
+    static class RuntimeConnectException extends RuntimeException {
+        public RuntimeConnectException(String message) {
+            super(message);
+        }
+    }
+
+    static class RuntimeSQLException extends RuntimeException {
+
+        public RuntimeSQLException(Throwable cause) {
+            super(cause);
+        }
+
+        public RuntimeSQLException(String message) {
+            super(message);
+        }
+    }
+}
+```
+
+### 코드 설명
+
+**예외 전환**<br>
+
+- 리포지토리에서 체크 예외인 `SQLException`이 발생하면 런타임 예외인 `RuntimeSQLException`으로 전환해서 예외를 던진다.
+  - 참고로 이때 기존 예외를 포함해주어야 예외 출력시 스택 트레이스에서 기존 예외도 함께 확인할 수 있다. 예외 포함에 대한 부분은 조금 뒤에 더 자세히 설명한다.
+- `NetworkClient`는 단순히 기존 체크 예외를 `RuntimeConnectException`이라는 런타임 예외가 발생하도록 코드를 바꾸었다.
+
+**런타임 예외 - 대부분 복구 불가능한 예외**<br>
+
+시스템에서 발생한 예외는 대부분 복구 불가능한 예욍이다. 런타임 예외를 사용하면 서비스나 컨트롤러가 이런 복구 불가능한 예외를 신경쓰지 않아도 된다. 물론 잉렇게 복구 불가능한 예외는 일관성 있게 공통으로 처리해야 한다.
+
+**런타임 예외 - 외존 관계에 대한 문제**<br>
+
+런타임 예외는 해당 객체가 처리할 수 없는 예외는 무시하면 된다. 따라서 체크 예외처럼 예외를 강제로 의존하지 않아도 된다.
+
+**럼타임 예외 throws 생략**<br>
+
+참고<br>
+
+```java
+static class Controller {
+    Service service = new Service();
+
+    public void request() {
+        service.logic();
+    }
+}
+
+static class Service {
+    Repository repository = new Repository();
+    NetworkClient networkClient = new NetworkClient();
+
+    public void logic() {
+        repository.call();
+        networkClient.call();
+    }
+}
+```
+
+런타임 예외이기 때문에 컨트롤러나 서비스가 예외를 처리할 수 없다면 다음 부분을 생략할 수 있다.(따라서 컨트롤러와 서비스에서 해당 예외에 대한 의존 관계가 발생하지 않는다.) `method() throws RuntimeSQLException, RuntimeConnectException`
+
+### 런타임 예외 구현 기술 변경시 파급 효과
+
+<img src="./imgs/자바_예외_이해/런타임_예외_구현_기술_변경시_파급_효과.png"><br>
+
+- 런타임 예외를 사용하면 중간에 기술이 변경되어도 해당 예외를 사용하지 않는 컨트롤러, 서비스에서는 코드를 변경하지 않아도 된다
+- 구현 기술이 변경되는 경우, 예외를 공통으로 처리하는 곳에서는 예외에 따른 다른 처리가 필요할 수 있다. 하지만 공통 처리하는 한곳만 변경하면 되기 때문에 변경의 영향 범위는 최소화 된다.
+
+### 정리
+
+- 처음 자바를 설계할 당시에는 체크 예외가 더 나은 선택이라 생각했다. 그래서 자바가 기본으로 제공하는 기능들에는 체크 예외가 많다
+- 그런데 시간이 흐르면서 복구할 수 없는 예외가 너무 많아졌다. 특히 라이브러리를 점점 더 많이 사용하면서 처리해야 하는 예외도 더 늘어났다. 체크 예외는 해당 라이브러리들이 제공하는 모든 예외를 처리할 수 없을 때마다 `throws`에 예외를 덕지덕지 붙어야 했다. 그래서 개발자 들은 `throws Exception`이라는 방법도 자주 사용하게 되었다.
+- 물론 이 방법은 사용하면 안된다. 모든 예외를 던진다고 선언하는 것인데, 결과적으로 어떤 예외를 잡고 어떤 예외를 던지는지 알 수 없기 때문이다. 체크 예외를 사용한다면 잡을 건 잡고 던질 예외는 명확하게 던지도록 선언해야 한다.
+- 체크 예외의 이런 문제점 때문에 최근 라이브러리들은 대부분 런타임 예외를 기본으로 제공한다. 사실 위에서 예시로 설명한 JPA 기술도 런타임 예외를 사용한다. 스프링도 대부분 런타임 예외를 제공한다
+- 런타임 예외도 필요하면 잡을 수 있기 때문에 필요한 경우에는 잡아서 처리하고, 그렇지 않으면 자연스럽게 던지도록 둔다. 그리고 예외를 공통으로 처리하는 부분을 앞에 만들어서 처리하면 된다.
+
+추가로 런타임 예외는 놓칠 수 있기 때문에 문서화가 중요하다.
+
 ## 예외 포함과 스텍 트레이스
+
+예외를 전환할 때는 꼭! 기존 예외를 포함해야 한다.<br>
+그렇지 않으면 스택 트레이스를 확인할 때 심각한 문제가 발생한다.
+
+### UncheckedAppTest 추가
+
+```java
+@Test
+void printEx() {
+    Controller controller = new Controller();
+    try {
+        controller.request();
+    } catch (Exception e) {
+        // e.printStackTrace();
+        log.info("ex", e);
+    }
+}
+```
+
+- 로그를 출력할 때 마지막 파라미터에 예외를 넣어주면 로그에 스택 트레이스를 출력할 수 있다.
+  - 예) `log.info("message={}", "message", ex)`여기서 마지막에 ex를 전달하는 것을 확인할 수 있다. 이렇게 하면 로그에 스택 트레이스를 출력할 수 있다.
+  - 예) `log.info("ex", ex)`지금 예에서는 파라미터가 없기 때문에, 예외만 파라미터에 전다랗면 스택 트레이스를 로그에 출력할 수 있다.
+- `System.out`에 스택 트레이스를 출력하려면 `e.printStackTrace()`를 사용하면 된다.
+
+# 스프링과 문제 해결 - 예외 처리, 반복
+
+## 체크 예외와 인터페이스
+
+서비스 계층은 가급적 특정 구현 기술에 의존하지 않고, 순수하게 유지하는 것이 좋다. 이렇게 하려면 예외에 대한 의존도 함게 해결해야 한다.
+
+예를 들어서 서비스가 처리할 수 없는 `SQLException`에 대한 의존을 제거하려면 어떻게 해야할까?<br>
+서비스가 처리할 수 없으므로 리포지토리가 던지는 `SQLException` 체크 예외를 런타임 예외로 저노한해서 서비스 계층에 던지면 된다. 이렇게 하면 서비스 계층이 해당 예외를 무시할 수 있기 때문데, 특정 구현 기술에 의존하는 부분을 제거하고 서비스 계층을 순수하게 유지할 수 있다.
+
+지금 부터 코드로 이 방법을 적용해보자
+
+### 인터페이스 도입
+
+먼저 `MemberRepository`인터페이스도 도입해서 구현 기술을 쉽게 변경할 수 있게 해보자.
+
+<img src="./imgs/스프링과_문제_해결-예외_처리,반복/인터페이스_도입.png"><br>
+
+- 이렇게 인터페이스를 도입하면 `MemberService`는 `MemberRepositry` 인터페이스에만 의존하면 된다.
+- 이제 구현 기술을 변경하고 싶으면 DI를 사용해서 `MemberService` 코드의 변경 없이 구현 기술을 변경할 수 있다.
+
+**MemberRepository 인터페이스 참고**
+
+```java
+public interface MemberReposity {
+    Member save(Member member);
+    Member findById(String memberId);
+    void update(String memberId, int money);
+    void delete(String memberId);
+}
+```
+
+- 특정 기술에 종속되지 않는 순수한 인터페이스이다. 이 인터페이스를 기반으로 특정 기술을 사용하는 구현체를 만들면 된다.
+
+### 체크 예외와 인터페이스
+
+잠깐? 기존에는 왜 이런 인터페이스를 만들지 않았을까? 사실 다음과 같은 문제가 있기 때문에 만들지 않았다.<br>왜냐하면 `SQLException`d이 체크 예외이기 때문에다. 여기서 체크 예외가 또 발목을 잡는다. 체크 예외를 사용하려면 인터페이스에도 해당 체크 예외가 선언되어 있어야 한다.<br>예를 들면 다음과 같은 코드가 된다.
+
+**체크 예외 코드에 인터페이스 도입시 문제점 - 인터페이스**<br>
+
+```java
+public interface MembeRepositoryEx {
+    Member save(Member member) throws SQLEXception;
+    Member findById(String memberId) throws SQLEXception;
+    void update(String memberId, int money) throws SQLEXception;
+    void delete(String memberId) throws SQLEXception;
+}
+```
+
+인터페이스의 메서드에 `throws SQLEXception`이 있는 것을 확인할 수 있다.
+
+**체크 예외 코드에 인터페이스 도입시 문제점 - 구현 클래스**<br>
+
+```java
+@Slf4j
+public class MemberRepositoryV3 implements MemberRepositoryEx {
+    public Member save(Member member) throws SQLEXception {
+        String sql = "insert into member(member_id, money) values (?, ?)";
+    }
+}
+```
+
+- 인터페이스 구현체가 체크 예외를 던지려면, 인터페이스 메서드에 먼저 체크 예외를 던지는 부분이 선언되어 있어야 한다. 그래야 구현 클래스의 메서드도 체크 예외를 던질 수 있다.
+  - 쉽게 이야기 해서 `MemberRepositoryV3`가 `throws SQLException`를 하려면 `MemberRepositoryEx`인터페이스에도 `throws SQLException`이 필요하다.
+- 참고로 구현 클래스의 메서드에 선언할 수 있는 예외는 부모 타입에서 던진 예외와 같거나 하위 타입이어야 한다.
+  - 예를 들어서 인터페이스 메서드에 `throws SQLException`를 선언하면, 구현 클래스 메서드에 `throws SQLException`는 가능하다. `SQLException`은 `Exception`의 하위 타입이기 때문이다.
+
+### 특정 기술에 종속되는 인터페이스
+
+구현 기술을 쉽게 변경하기 위해서는 인터페이스를 도입하더라도 `SQLException`과 같은 특정 구현 기술에 종속적인 체크 예외를 사용하게 되면 인터페이스에도 해당 예외를 포함해야 한다. 하지만 이것은 우리가 원하던 순수한 인터페이스가 아니다. JDBC기술에 종속적인 인터페이스일 뿐이다. 인터페이스를 만드는 목적은 구현체를 쉽게 변경하기 위함인데, 이미 인터페이스가 특정 구현 기술에 오염이 되어 버렸다. 향후 JDBC가 아닌 다른 기술로 변경한다면 인터페이스 자체를 변경해야 한다.
+
+### 런타임 예외와 인터페이스
+
+런타임 에외는 이런 부분에서 자유롭다. 인터페이스에 런타임 예외를 따로 선언하지 않아도 된다. 따라서 인터페이스가 특정 기술에 종속적일 필요가 없다.
+
+## 런타임 예외 적용
+
+실제 코드에 런타임 예외를 사용하도록 적용해보자
+
+### MemberRepository 생성
+
+```java
+package hello.jdbc.repository;
+
+import hello.jdbc.domain.Member;
+
+public interface MemberRepository {
+    Member save(Member member);
+
+    Member findById(String memberId);
+
+    void update(String memberId, int money);
+
+    void delete(String memberId);
+}
+```
+
+### MyDbException 생성 - 런타임 예외
+
+```java
+package hello.jdbc.repository.ex;
+
+public class MyDbException extends RuntimeException {
+
+    public MyDbException() {
+
+    }
+
+    public MyDbException(String message) {
+        super(message);
+    }
+
+    public MyDbException(String message, Throwable cause) {
+        super(message, cause);
+    }
+
+    public MyDbException(Throwable cause) {
+        super(cause);
+    }
+}
+```
+
+`RuntimeException`을 상속받았다. 따라서 `MyDbException`은 런타임(언체크) 예외가 된다.
+
+### MemberRepositoryV4_1 생성
+
+```java
+package hello.jdbc.repository;
+
+import hello.jdbc.domain.Member;
+import hello.jdbc.repository.ex.MyDbException;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.jdbc.datasource.DataSourceUtils;
+import org.springframework.jdbc.support.JdbcUtils;
+
+import javax.sql.DataSource;
+import java.sql.*;
+import java.util.NoSuchElementException;
+
+/**
+ * 예외 누수 문제 해결
+ * - 체크 예외를 런타임 예외로 변경
+ * - MemberRepository 인터페이스 사용
+ * - throws SQLException 제거
+ */
+@Slf4j
+public class MemberRepositoryV4_1 implements MemberRepository{
+
+    private final DataSource dataSource;
+
+    public MemberRepositoryV4_1(DataSource dataSource) {
+        this.dataSource = dataSource;
+    }
+
+    @Override
+    public Member save(Member member) // throws SQLException
+    {
+        String sql = "insert into member(member_id, money) values (?, ?)";
+
+        Connection con = null;
+        PreparedStatement pstmt = null;
+
+        try {
+            con = getConnection();
+            pstmt = con.prepareStatement(sql);
+            pstmt.setString(1, member.getMemberId());
+            pstmt.setInt(2, member.getMoney());
+            pstmt.executeUpdate();
+            return member;
+        } catch (SQLException e) {
+            log.error("db error", e);
+            //throw e;
+            throw new MyDbException(e);
+        } finally {
+            close(con, pstmt, null);
+        }
+    }
+
+    @Override
+    public Member findById(String memberId) {
+        String sql = "select * from member where member_id = ?";
+
+        Connection con = null;
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+
+        try {
+            con = getConnection();
+            pstmt = con.prepareStatement(sql);
+            pstmt.setString(1, memberId);
+
+            rs = pstmt.executeQuery();
+            if (rs.next()) {
+                Member member = new Member();
+                member.setMemberId(rs.getString("member_id"));
+                member.setMoney(rs.getInt("money"));
+                return member;
+            } else {
+                throw new NoSuchElementException("member not found memberId = " + memberId);
+            }
+        } catch (SQLException e) {
+            throw new MyDbException(e);
+        } finally {
+            close(con, pstmt, rs);
+        }
+    }
+
+    @Override
+    public void update(String memberId, int money) {
+        String sql = "update member set money=? where member_id=?";
+
+        Connection con = null;
+        PreparedStatement pstmt = null;
+
+        try {
+            con = getConnection();
+            pstmt = con.prepareStatement(sql);
+            pstmt.setInt(1, money);
+            pstmt.setString(2, memberId);
+            int resultSize = pstmt.executeUpdate();
+            log.info("resultSize={}", resultSize);
+        } catch (SQLException e) {
+            throw new MyDbException(e);
+        } finally {
+            close(con, pstmt, null);
+        }
+    }
+
+    @Override
+    public void delete(String memberId) {
+        String sql = "delete from member where member_id=?";
+
+        Connection con = null;
+        PreparedStatement pstmt = null;
+
+        try {
+            con = getConnection();
+            pstmt = con.prepareStatement(sql);
+            pstmt.setString(1, memberId);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            throw new MyDbException(e);
+        } finally {
+            close(con, pstmt, null);
+        }
+    }
+
+    private void close(Connection con, Statement stmt, ResultSet rs) {
+        JdbcUtils.closeResultSet(rs);
+        JdbcUtils.closeStatement(stmt);
+        // 주의! 트랜잭션 동기화를 사용하려면 DataSourceUtils를 사용해야 한다.
+        DataSourceUtils.releaseConnection(con, dataSource);
+    }
+
+    private Connection getConnection() throws SQLException {
+        // 주의! 트랜잭션 동기화를 사용하려면 DataSourceUtils를 사용해야 한다.
+        Connection con = DataSourceUtils.getConnection(dataSource);
+        log.info("get connection={}, class={}", con, con.getClass());
+        return con;
+    }
+}
+
+```
+
+- `MemberRepository`인터페이스를 구현한다.
+- 이 코드에서 핵심은 `SQLException`이라는 체크 예외를 `MyDbException`이라는 런타임 예외로 변환해서 던지는 부분이다.
+- (참고) 인터페이스를 구현하도록 수정하였기에 @Override를 적용해주었다.
+
+**한번 더 참고**<br>
+
+**얘외 변환**<br>
+
+```java
+} catch (SQLException e) {
+    // throw e;
+    throw new MyDbException(e);
+}
+```
+
+- 잘 보면 기존 예외를 생성자를 통해서 포함하고 있는 것을 확인할 수 있다. 예외는 원인이 되는 예외를 내부에 포함할 수 있는데, 곡 이러헥 작성해야 한다. 그래야 예외를 출력했을 때 원인이 된느 기존 예외도 함께 확인할 수 있다.
+- `MyDbException`이 내부에 `SQLException`을 포함하고 있다고 이해하면 된다. 예외를 출력햇을 때 스택 트레이스를 통해 둘다 확인할 수 있다.
+
+**예외 반환 - 기존 예외 무시 (다음과 같이 기존 예외를 무시하고 작성하면 절대 안된다!)**<br>
+
+```java
+} catch (SQLException e) {
+    throw new MyDbException();
+}
+```
+
+- 잘 보면 `new MyDbException()`으로 해당 예외만 생성하고 기존에 있는 `SQLException`은 포함하지 않고 무시한다. 
+- 따라서 `MyDbException`은 내부에 원인이 되는 다른 예외를 포함하지 않는다.
+- 이렇게 원인이 되는 예외를 내부에 포함하지 않으면, 예외를 스택 트레이스를 통해 출력했을 때 기존에 원인이 되는 부분을 확인할 수 없다.
+  - 만약 `SQLException`에서 문법 오류가 발생했다면 그 부분을 확인할 방법이 없게 된다.
+- 예외를 변환할 때는 기존 예외를 꼭! 포함하자. 장애가 발생하고 로그에서 진짜 원인이 남지 않는 심각한 문제가 발생할 수 있다.
+
+이번에는 서비스가 인터페이스를 사용하도록 하자.
+
+### MemberServiceV4 생성
+
+```java
+package hello.jdbc.service;
+
+import hello.jdbc.domain.Member;
+import hello.jdbc.repository.MemberRepository;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * 예외 누수 문제 해결
+ * SQLException 제거
+ *
+ * MemberRepository 인터페이스에 의존
+ */
+@Slf4j
+public class MemberServiceV4 {
+
+    private final MemberRepository memberRepository;
+
+    public MemberServiceV4(MemberRepository memberRepository) {
+        this.memberRepository = memberRepository;
+    }
+
+    @Transactional
+    public void accountTransfer(String fromId, String toId, int money) // throws SQLException
+    {
+        bizLogic(fromId, toId, money);
+    }
+
+    private void bizLogic(String fromId, String toId, int money) // throws SQLException
+    {
+        Member fromMember = memberRepository.findById(fromId);
+        Member toMember = memberRepository.findById(toId);
+
+        memberRepository.update(fromId, fromMember.getMoney() - money);
+        validation(toMember);
+        memberRepository.update(toId, toMember.getMoney() + money);
+    }
+
+    private void validation(Member toMember) {
+        if (toMember.getMemberId().equals("ex")) {
+            throw new IllegalStateException("이체중 예외 발생!");
+        }
+    }
+}
+```
+
+- `MemberRepository` 인터페이스에 의존하도록 코드를 변경했다.
+- `MemberServiceV3_3`와 비교해서 보면 드디어 매서드에서 `throws SQLException`부분이 제거된 것을 확인할 수 있다.
+- 드디어 순수한 서비스를 완성했다.
+
+### MemberServiceV4Test 생성
+
+```java
+package hello.jdbc.service;
+
+/**
+ * 예외 누수 문제 해결
+ * SQLException 제거
+ * <p>
+ * MemberRepository 인터페이스에 의존
+ */
+@Slf4j
+@SpringBootTest
+class MemberServiceV4Test {
+
+    public static final String MEMBER_A = "memberA";
+    public static final String MEMBER_B = "memberB";
+    public static final String MEMBER_EX = "ex";
+
+    @Autowired
+    private MemberRepository memberRepository;
+    @Autowired
+    MemberServiceV4 memberService;
+
+    @TestConfiguration
+    static class TestConfig {
+        private final DataSource dataSource;
+
+        public TestConfig(DataSource dataSource) {
+            this.dataSource = dataSource;
+        }
+
+        @Bean
+        MemberRepository memberRepository() {
+            return new MemberRepositoryV4_1(dataSource);
+        }
+
+        @Bean
+        MemberServiceV4 memberServiceV4() {
+            return new MemberServiceV4(memberRepository());
+        }
+    }
+
+    @AfterEach
+    void after() {
+        memberRepository.delete(MEMBER_A);
+        memberRepository.delete(MEMBER_B);
+        memberRepository.delete(MEMBER_EX);
+    }
+
+    @Test
+    @DisplayName("정상 이체")
+    void accountTransfer() {
+        //given
+        Member memberA = new Member(MEMBER_A, 10000);
+        Member memberB = new Member(MEMBER_B, 10000);
+        memberRepository.save(memberA);
+        memberRepository.save(memberB);
+
+        //when
+        memberService.accountTransfer(memberA.getMemberId(), memberB.getMemberId(), 2000);
+
+        // then
+        Member findMemberA = memberRepository.findById(memberA.getMemberId());
+        Member findMemberB = memberRepository.findById(memberB.getMemberId());
+        assertThat(findMemberA.getMoney()).isEqualTo(8000);
+        assertThat(findMemberB.getMoney()).isEqualTo(12000);
+    }
+
+    @Test
+    @DisplayName("이체 중 예외 발생!")
+    void accountTransferEx() {
+        //given
+        Member memberA = new Member(MEMBER_A, 10000);
+        Member memberEx = new Member(MEMBER_EX, 10000);
+        memberRepository.save(memberA);
+        memberRepository.save(memberEx);
+
+        //when
+        assertThatThrownBy(
+                () -> memberService.accountTransfer(memberA.getMemberId(), memberEx.getMemberId(), 2000))
+                .isInstanceOf(IllegalStateException.class);
+
+        //then
+        Member findMemberA = memberRepository.findById(memberA.getMemberId());
+        Member findMemberEx = memberRepository.findById(memberEx.getMemberId());
+        assertThat(findMemberA.getMoney()).isEqualTo(10000);
+        assertThat(findMemberEx.getMoney()).isEqualTo(10000);
+    }
+
+    @Test
+    void AopCheck() {
+        log.info("memberService class={}", memberService.getClass());
+        log.info("memberRepository class={}", memberRepository.getClass());
+        assertThat(AopUtils.isAopProxy(memberService)).isTrue();
+        assertThat(AopUtils.isAopProxy(memberRepository)).isFalse();
+    }
+}
+```
+
+- `MemberRepository`인터페이스를 사용하도록 했다
+- `SQLException` 체크 예외를 던지는 구문을 제거했다.
+
+> [!NOTE]
+> 체크 예외를 런타임 예외로 변환하면서 인터페이스와 서비스 계층의 순수성을 유지할 수 있게 되었다. 덕분에 향후 JDBC에서 다른 구현 기술로 변경하더라도 서비스 계층의 코드를 변경하지 않고 유지할 수 있다.
+
+**남은 문제**
+
+리포지토리에서 넘어오는 특정한 예외의 경우, 복구를 시도할 수도 있다. 그런데 지금 방식은 항상 `MyDbException`이라는 예외만 넘어오기 때문에 예외를 구분할 수 없는 단점이 있다. 만약 특정 상황에서는 예외를 잡아서 복구하고 싶으면 예외를 어떻게 구분해서 처리할 수 있을까?
+
+## 데이터 접근 예외 직접 만들기
+
+## 스프링 예외 추상화 이해
+
+## 스프링 예외 추상화 적용
+
+## JDBC 반복 문제 해결 - JdbcTemplate
