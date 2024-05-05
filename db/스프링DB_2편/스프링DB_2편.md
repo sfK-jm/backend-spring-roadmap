@@ -251,29 +251,218 @@ public class ItemServiceV1 implements ItemService{
 
     @Override
     public Item save(Item item) {
-        return null;
+        return itemRepository.save(item);
     }
 
     @Override
     public void update(Long itemId, ItemUpdateDto updateParam) {
-
+        itemRepository.update(itemId, updateParam);
     }
 
     @Override
     public Optional<Item> findById(Long id) {
-        return null;
+        return itemRepository.findById(id);
     }
 
     @Override
-    public List<Item> findItems(ItemSearchCond itemSearch) {
-        return null;
+    public List<Item> findItems(ItemSearchCond cond) {
+        return itemRepository.findAll(cond);
     }
 }
+
 ```
 
 - `ItemServiceV1`서비스 구현체는 대부분의 기능을 단순히 리포지토리에 위임한다.
 
+### 컨트롤러 분석
+
+**HomeController**
+
+```java
+package hello.itemservice.web;
+
+@Controller
+@RequiredArgsConstructor
+public class HomeController {
+
+    @RequestMapping("/")
+    public String home() {
+        return "redirect:/items";
+    }
+}
+```
+
+단순히 홈으로 요청이 왔을 때 `items`로 이동하는 컨트롤러이다.
+
+**ItemController**
+
+```java
+package hello.itemservice.web;
+
+@Controller
+@RequestMapping("/items")
+@RequiredArgsConstructor
+public class ItemController {
+
+    private final ItemService itemService;
+
+    @GetMapping
+    public String items(@ModelAttribute("itemSearch") ItemSearchCond itemSearch, Model model) {
+        List<Item> items = itemService.findItems(itemSearch);
+        model.addAttribute("items", items);
+        return "items";
+    }
+
+    @GetMapping("/{itemId}")
+    public String item(@PathVariable long itemId, Model model) {
+        Item item = itemService.findById(itemId).get();
+        model.addAttribute("item", item);
+        return "item";
+    }
+
+    @GetMapping("/add")
+    public String addForm() {
+        return "addForm";
+    }
+
+
+    @PostMapping("/add")
+    public String addItem(@ModelAttribute Item item, RedirectAttributes redirectAttributes) {
+        Item savedItem = itemService.save(item);
+        redirectAttributes.addAttribute("itemId", savedItem.getId());
+        redirectAttributes.addAttribute("status", true);
+        return "redirect:/items/{itemId}";
+    }
+
+    @GetMapping("/{itemId}/edit")
+    public String editForm(@PathVariable Long itemId, Model model) {
+        Item item = itemService.findById(itemId).get();
+        model.addAttribute("item", item);
+        return "editForm";
+    }
+
+    @PostMapping("{itemId}/edit")
+    public String edit(@PathVariable Long itemId, @ModelAttribute ItemUpdateDto updateParam) {
+        itemService.update(itemId, updateParam);
+        return "redirect:/items/{itemId}";
+    }
+}
+```
+
+- 상품을 CRUD하는 컨트롤러이다.
+
 ## 프로젝트 구조 설명2 - 설정
+
+**스프링 부트 설정 분석**
+
+### MemoryConfig - 빈 수동 등록
+
+```java
+package hello.itemservice.config;
+
+@Configuration
+public class MemoryConfig {
+
+    @Bean
+    public ItemService itemService() {
+        return new ItemServiceV1(itemRepository());
+    }
+
+    @Bean
+    public ItemRepository itemRepository() {
+        return new MemoryItemRepository();
+    }
+}
+```
+
+- `ItemServiceV1`, `MemoryItemRepository`를 스프링 빈으로 등록하고 생성자를 통해 의존관계를 주입한다.
+- 참고로 여기서는 서비스와 리포지토리는 구현체를 편리하게 변경하기 위해, 이렇게 수동으로 빈을 등록했다.
+- 컨트롤러는 컴포넌트 스캔을 사용한다.
+
+### TestDataInit
+
+```java
+package hello.itemservice;
+
+@Slf4j
+@RequiredArgsConstructor
+public class TestDataInit {
+
+    private final ItemRepository itemRepository;
+
+    /**
+     * 확인용 초기 데이터 추가
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    public void initData() {
+        log.info("test data init");
+        itemRepository.save(new Item("itemA", 10000, 10));
+        itemRepository.save(new Item("itemB", 20000, 20));
+    }
+}
+```
+
+- 애플리케이션을 실행할 때 초기 데이터를 저장한다
+- 리스트에서 데이터가 잘 나오는지 편리하게 확인할 용도로 사용한다.
+  - 이 기능이 없으면 서버를 실행할 때 마다 데이터를 입력해야 리스트에 나타난다.(메모리여서 서버를 내리면 데이터가 제거된다)
+- `@EventListener(ApplicationReadyEvent.class)`: 스프링 컨테이너가 완전히 초기화를 다 끝내고, 실행 준비가 되었을 때 발생하는 이벤트이다. 스프링이 이 시점에서 해당 애노테이션이 붙은 `initData()`메서드를 호출해준다. (참고로 스프링에서 발생하는 이벤트이기 때문에 TestDataInit가 스프링 빈으로 등록되어 있어야 initData가 호출된다.)
+  - 참고로 이 기능 대신 `@PostConstruct`를 사용할 경우 AOP 같은 부분이 아직 다 처리되지 않은 시점에 호출될 수 있기 때문에, 간혹 문제가 발생할 수 있다. 예를 들어서 `@Transactional`과 관련된 AOP가 적용되지 않은 상태로 호출될 수 있다.
+  - `@EventListener(ApplicationReadyEvent.class)`는 AOP를 포함한 스프링 컨테이너가 완전히 초기화 된 이후에 호출되기 때문에 이런 문제가 발생하지 않는다.
+
+### ItemServiceApplication
+
+```java
+package hello.itemservice;
+
+@Import(MemoryConfig.class)
+@SpringBootApplication(scanBasePackages = "hello.itemservice.web")
+public class ItemServiceApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(ItemServiceApplication.class, args);
+	}
+
+	@Bean
+	@Profile("local")
+	public TestDataInit testDataInit(ItemRepository itemRepository) {
+		return new TestDataInit(itemRepository);
+	}
+}
+```
+
+- `@Import(MemoryConfig.class)`: 앞서 설정한 `MemoryConfig`를 설정 파일로 사용한다.
+- `scanBasePackages = "hello.itemservice.web"`: 여기서는 컨트롤러만 컴포넌트 스캔을 사용하고, 나머지는 직접 수동 등록한다. 그래서 컴포넌트 스캔 경로를 `hello.itemservice.web`하위로 지정했다.
+- `@Profile("local")`: 특정 프로필의 경우에만 해당 스프링 빈을 등록한다. 여기서는 `local`이라는 이름의 프로필이 사용되는 경우에만 `testDataInit`이라는 스프링 빈을 등록한다. 이 빈은 앞서 본 것인데, 편의상 초기 데이터를 만들어서 저장하는 빈이다.
+
+### 프로필
+
+스프링은 로딩 시점에 `application.properties`의 `spring.profiles.active`속성을 읽어서 프로필로 사용한다.<br>
+이 프로필은 로컬(나의 PC), 운영환경, 테스트 실행 등등 다양한 환경에 따라서 다른 설정을 할 때 사용하는 정보이다.
+
+예를 들어서 로컬PC에서는 로컬 PC에 설치된 데이터베이스에 접근해야 하고, 운영 환경에서는 운영 데이터베이스에 접근해야 한다면 서로 설정 정보가 달라야 한다. 심지어 환경에 따라서 다른 스프링 빈을 등록해야 할 수 도 있다. 프로필을 사용하면 이런 문제를 깔끔하게 해결할 수 있다.
+
+#### main 프로필
+
+`application.properties`<br>
+```properties
+spring.profiles.active=local
+```
+
+`application.properties`는 `/src/main`하위의 자바 객체를 실행할 때 (주로 `main()`)동작하는 스프링 설정이다. `spring.profiles.active=local`이라고 하면 스프링은 `local`이라는 프로필로 동작한다. 따라서 직전에 설정한 `	@Profile("local")`가 동작하고, `testDataInit`가 스프링 빈으로 등록된다.
+
+#### test 프로필
+
+```properties
+spring.profiles.active=test
+```
+
+- 주로 테스트 케이스를 실행할 때 동작한다.
+- `spring.profiles.active=test`로 설정하면 `test`라는 프로필로 동작한다. 이 경우 직전에 설명한 `@Profile("local")`는 프로필 정보가 맞지 않아서 동작하지 않는다. 따라서 `testDataInit`이라는 스프링 빈도 등록되지 않고, 초기 데이터도 추가하지 않는다.
+
+프로필 기능을 사용해서 스프링으로 웹 애플리케이션을 로컬(`local`)에서 직접 실행할 때는 `testDataInit`이 스프링 빈으로 등록된다. 따라서 등록한 초기화 데이터를 편리하게 확인할 수 있다. 초기화 데이터 덕분에 편리한 점도 있지만, 테스트 케이스를 실행할 때는 문제가 될 수 있다. 테스트에서 이런 데이터가 들어있다면 오류가 발생할 수 있다. 예를 들어서 데이터를 하나 저장하고 전체 카운트를 확인하는데 1이 아니라 `testDataInit`때문에 데이터가 2건 추가되어서 3이 되는 것이다. 프로필 덕분에 테스트 케이스에서는 `test`프로필이 실행된다. 따라서 `TestDataInit`는 스프링 빈으로 추가되지 않고, 따라서 초기 데이터도 추가되지 않는다.
+
+> [!TIP]
+> 프로필에 대한 스프링 부트 공식 메뉴얼은 다음을 참고하자. (https://docs.spring.io/spring-boot/docs/current/reference/html/features.html#features.profiles)
 
 ## 프로젝트 구조 설명3 - 테스트
 

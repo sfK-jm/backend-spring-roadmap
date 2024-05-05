@@ -18,21 +18,21 @@ public class ItemServiceV1 implements ItemService{
 
     @Override
     public Item save(Item item) {
-        return null;
+        return itemRepository.save(item);
     }
 
     @Override
     public void update(Long itemId, ItemUpdateDto updateParam) {
-
+        itemRepository.update(itemId, updateParam);
     }
 
     @Override
     public Optional<Item> findById(Long id) {
-        return null;
+        return itemRepository.findById(id);
     }
 
     @Override
-    public List<Item> findItems(ItemSearchCond itemSearch) {
-        return null;
+    public List<Item> findItems(ItemSearchCond cond) {
+        return itemRepository.findAll(cond);
     }
 }
