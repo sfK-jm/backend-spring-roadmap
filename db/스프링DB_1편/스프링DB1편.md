@@ -397,7 +397,8 @@ public class MemberRepositoryV0 {
 > [!WARNING]
 > 리소스 정리는 꼭! 해주어야 한다. 따라서 예외가 발생하든, 하지 않든 항상 수행되어야 하므로 `finally` 구문에 주의해서 작성해야 한다. 만약 이 부분을 놓치게 되면 커넥션이 끊어지지 않고 계속 유지되는 문제가 발생할 수 있다. 이런 것을 리소스 누수라고 하는데, 걸과적으로 커넥션 부족으로 장애가 발행할 수 있다.
 
-> [!TIP] > `PreparedStatment`는 `Statement`의 자식타입인데, `?`를 통한 파라미터 바인딩을 가능하게 해준다. (참고로 SQL injection 공격을 예방하려면 `PreparedStatment`를 통한 파라미터 바인딩 방식을 사용해야 한다.)
+> [!TIP] 
+> `PreparedStatment`는 `Statement`의 자식타입인데, `?`를 통한 파라미터 바인딩을 가능하게 해준다. (참고로 SQL injection 공격을 예방하려면 `PreparedStatment`를 통한 파라미터 바인딩 방식을 사용해야 한다.)
 
 ### 테스트 코드
 
@@ -1094,7 +1095,8 @@ class MemberRepositoryV1Test {
 > [!NOTE]
 > HikariProxyConnection 객체 인스턴스 주소는 다 다르다. Hikari에서는 커넥션 풀에서 커넥션을 반환해줄 때, HikariProxyConnection 이라는 객체를 생성하고, 거기에 실제 커넥션을 wrapping해서 반환한다. (따라서 HikariProxyConnection 객체 인스턴스 주소는 다 다르지만, 그 안에 실제 커넥션은 동일하다.)<br> > **핵심은 커넥션 풀을 사용하면, 같은 커넥션을 재사용할 수 있다는 점이다.**
 
-> [!TIP] > **DI**<br> > `DriverManagerDataSource` -> `HikariDataSource`로 변경해도 `MemberRepositoryV1`의 코드는 전혀 변경하지 않아도 된다. `MemberRepositoryV1`는 `DataSource`인터페이에만 의존하기 때문이다. 이것이 `DataSource`를 사용하는 장점이다. (`MemberRepositoryV1`는 `DataSource` 인터페이스에만 의존한다. 구현체가 바뀌더라도 코드를 변경하지 않아도 된다.)
+> [!TIP]
+>  **DI**<br> `DriverManagerDataSource` -> `HikariDataSource`로 변경해도 `MemberRepositoryV1`의 코드는 전혀 변경하지 않아도 된다. `MemberRepositoryV1`는 `DataSource`인터페이에만 의존하기 때문이다. 이것이 `DataSource`를 사용하는 장점이다. (`MemberRepositoryV1`는 `DataSource` 인터페이스에만 의존한다. 구현체가 바뀌더라도 코드를 변경하지 않아도 된다.)
 
 # 트랙잭션 이해
 
@@ -1137,7 +1139,7 @@ class MemberRepositoryV1Test {
 - SERIALIZABLE(직렬화 가능)
 
 > [!TIP]
-> 여기선느 일반적으로 많이 사용하는 READ COMMITTED(커밋된 읽기) 트랜잭션 격리 수준을 기준으로 설명한다.
+> 여기서는 일반적으로 많이 사용하는 READ COMMITTED(커밋된 읽기) 트랜잭션 격리 수준을 기준으로 설명한다.
 
 ## 데이터베이스 연결 구조와 DB 세션
 
@@ -2476,7 +2478,8 @@ public interface PlatformTransactionManager extends TransactionManager {
   3. 리포지토리는 트랜잭션 동기화 매니저에 보관된 커넥션을 꺼내서 사용한다. 따라서 파라미터로 커넥션을 전달하지 않아도 된다.
   4. 트랜잭션이 종료되면 트랜잭션 매니저는 트랜잭션 동기화 매니저에 보관된 커넥션을 통해 트랜잭션을 종료하고, 커넥션도 닫는다.
 
-> [!TIP] > **트랜잭션 동기화 매니저**<br>다음 트랜잭션 동기화 매니저 클래스를 열어보면 쓰레드 로컬을 사용하는 것을 확인할 수 있다.<br>`org.springframework.transaction.support.TransactionSynchronizationManager`<br><br>쓰레드 로컬을 사용하면 각각의 쓰레드마다 별도의 저장소가 부여된다. 따라서 해당 쓰레드만 해당 데이터에 접근할 수 있다.
+> [!TIP]
+> **트랜잭션 동기화 매니저**<br>다음 트랜잭션 동기화 매니저 클래스를 열어보면 쓰레드 로컬을 사용하는 것을 확인할 수 있다.<br>`org.springframework.transaction.support.TransactionSynchronizationManager`<br>쓰레드 로컬을 사용하면 각각의 쓰레드마다 별도의 저장소가 부여된다. 따라서 해당 쓰레드만 해당 데이터에 접근할 수 있다.
 
 ## 트랜잭션 문제 해결 - 트랜잭션 매니저 1
 
