@@ -3363,29 +3363,3 @@ public class ItemServiceApplication {
 ## 정리
 
 스프링 데이터 JPA의 대표적인 기능을 알아보았다. 스프링 데이터 JPA는 이 외에도 정말 수 많은 편리한 기능을 제공한다. 심지어 우리가 어렵게 사용하는 페이징을 위한 기능들도 제공한다. 스프링 데이터 JPA는 단순히 편리함을 넘어서 많은 개발자들이 똑같은 코드로 중복 개발하는 부분을 개선해준다.(스프링 데이터 JPA는 실무에서 기본으로 선택하는 기술이다.)
-
-# 데이터 접근 기술 - Querydsl
-
-## Querydsl 설정
-
-`build.gradle`추가
-
-```gradle
-dependencies {
-    //Querydsl 추가
-	implementation 'com.querydsl:querydsl-jpa'
-	annotationProcessor "com.querydsl:querydsl-apt:" +
-			"${dependencyManagement.importedProperties['querydsl.version']}:jpa"
-	annotationProcessor "jakarta.annotation:jakarta.annotation-api"
-	annotationProcessor "jakarta.persistence:jakarta.persistence-api"
-}
-
-//Querydsl 추가, 자동 생성된 Q클래스 gradle clean으로 제거
-clean {
-	delete file('src/main/generated')
-}
-```
-
-
-
-## Querydsl 적용
