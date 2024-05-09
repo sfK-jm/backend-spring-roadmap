@@ -2,6 +2,7 @@ package hello.itemservice.repository;
 
 import hello.itemservice.domain.Item;
 import hello.itemservice.repository.memory.MemoryItemRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,6 +17,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
+@Slf4j
 @Transactional
 @SpringBootTest
 class ItemRepositoryTest {
@@ -42,6 +44,8 @@ class ItemRepositoryTest {
 
         // then
         Item findItem = itemRepository.findById(item.getId()).get();
+        log.info("savedItem = {}", savedItem);
+        log.info("findItem = {}", findItem);
         assertThat(findItem).isEqualTo(savedItem);
     }
 

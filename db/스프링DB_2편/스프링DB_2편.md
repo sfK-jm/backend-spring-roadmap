@@ -2695,6 +2695,360 @@ logging.level.org.hibernate.orm.jdbc.bind=TRACE
 
 ## JPA 적용1 - 개발
 
+JPA에서 가장 중요한 부분은 객체와 테이블을 매핑하는 것이다.<br>JPA가 제공하는 애노테이션을 사용해서 `Item`객체와 테이블을 매핑해보자.
+
+### Item - ORM 매핑
+
+```java
+package hello.itemservice.domain;
+
+import jakarta.persistence.*;
+import lombok.Data;
+
+@Data
+@Entity
+public class Item {
+
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "item_name", length = 10)
+    private String itemName;
+    private Integer price;
+    private Integer quantity;
+
+    public Item() {
+    }
+
+    public Item(String itemName, Integer price, Integer quantity) {
+        this.itemName = itemName;
+        this.price = price;
+        this.quantity = quantity;
+    }
+}
+```
+
+- `@Entity`: JPA가 사용하는 객체라는 뜻이다. 이 에노테이션이 있어야 JPA가 인식할 수 있다. 이렇게 `@Entity`가 붙은 객체를 JPA에서는 엔티티라 한다.
+- `@Id`: 테이블의 PK와 해당 필드를 매핑한다.
+- `@GeneratedValue(strategy = GenerationType.IDENTITY)`: PK 생성 값을 데이터베이스에서 생성하는 `IDENTITY`방식을 사용한다. 예) MySQL auto increment
+- `@Column`: 객체의 필드를 테이블의 컬럼과 매핑한다.
+  - `name = "item_name"`: 객체는 `itemName`이지만 테이블의 컬럼은 `item_name`이므로 이렇게 매핑했다.
+  - `length = 10`: JPA의 매핑 정보로 DDL(`create table`)도 생성할 수 있는데, 그때 컬럼의 길이 값으로 활용된다.(`varchar 10`)
+  - `@Column`을 생략할 경우, 필드의 이름을 테이블 컬럼 이름으로 사용한다. 참고로 지금처럼 스프링 부트와 통합해서 사용하면 필드 이름을 테이블 컬럼 명으로 변경할 때 객체의  필드의 카멜 케이스를 테이블 컬럼의 언더스코어로 자동으로 변환해준다. (`itemName` -> `item_name`, 따라서 위 예제의 `@Colum(name="item_name")`를 생략해도 된다.)
+- (참고) JPA는 `public`또는 `protected`의 기본 생성자가 필수이다. 기본 생성자를 꼭 넣어주자. (`public Item() {}`)
+
+이렇게 하면 기본 매핑은 모두 끝난다. 이제 JPA를 실제 사용하는 코드를 작성해보자.
+
+### JpaItemRepositoryV1 생성
+
+```java
+package hello.itemservice.repository.jpa;
+
+@Slf4j
+@Repository
+@Transactional
+public class JpaItemRepositoryV1 implements ItemRepository {
+
+    private final EntityManager em;
+
+    public JpaItemRepositoryV1(EntityManager em) {
+        this.em = em;
+    }
+
+    @Override
+    public Item save(Item item) {
+        em.persist(item);
+        return item;
+    }
+
+    @Override
+    public void update(Long itemId, ItemUpdateDto updateParam) {
+        Item findItem = em.find(Item.class, itemId);
+        findItem.setItemName(updateParam.getItemName());
+        findItem.setPrice(updateParam.getPrice());
+        findItem.setQuantity(updateParam.getQuantity());
+    }
+
+    @Override
+    public Optional<Item> findById(Long id) {
+        Item item = em.find(Item.class, id);
+        return Optional.ofNullable(item);
+    }
+
+    @Override
+    public List<Item> findAll(ItemSearchCond cond) {
+        String jpql = "select i from Item i";
+
+        Integer maxPrice = cond.getMaxPrice();
+        String itemName = cond.getItemName();
+
+        if (StringUtils.hasText(itemName) || maxPrice != null) {
+            jpql += " where";
+        }
+
+        boolean andFlag = false;
+        if (StringUtils.hasText(itemName)) {
+            jpql += " i.itemName like concat('%',:itemName,'%')";
+            andFlag = true;
+        }
+
+        if (maxPrice != null) {
+            if (andFlag) {
+                jpql += " and";
+            }
+            jpql += " i.price <= :maxPrice";
+        }
+
+        log.info("jpql={}", jpql);
+
+        TypedQuery<Item> query = em.createQuery(jpql, Item.class);
+        if (StringUtils.hasText(itemName)) {
+            query.setParameter("itemName", itemName);
+        }
+        if (maxPrice != null) {
+            query.setParameter("maxPrice", maxPrice);
+        }
+
+        return query.getResultList();
+    }
+}
+```
+
+- `private final EntityManager em`: 생성자를 보면 스프링을 통해 엔티티 매니저(`EntityManager`)라는 것을 주입받은 것을 확인할 수 있다. JPA의 모든 동작은 엔티티 매니저를 통해서 이루어진다. 엔티티 매니저는 내부에 데이터소스를 가지고 있고, 데이터베이스에 접근할 수 있다.
+- `@Transactional`: JPA의 모든 데이터 변경(등록, 수정, 삭제)은 트랜잭션 안에서 이루어져야 한다. 조회는 트랜잭션이 없어도 가능하다. 변경의 경우 일반적으로 서비스 계층에서 트랜잭션을 시작하기 때문에 문제가 없다. 하지만 이번 예제에서는 복잡한 비즈니스 로직이 없어서 서비스 계층에서 트랜잭션을 걸지 않았다. JPA에서는 데이터 변경시 트랜잭션이 필수다. 따라서 리포지토리에 트랜잭션을 걸어주었다. 다시한번 강조하지만 일반적으로 비즈니스 로직을 시작하는 서비스 계층에 트랜잭션을 걸어주는 것이 맞다.(참고로 개발하다보면 repository에 걸때도 있다. service가 없거나 하는 등)
+
+먼저 설정을 완료하고 실행한 다음에, 코드를 분석하자
+
+### JpaConfig 생성
+
+```java
+package hello.itemservice.config;
+
+@Configuration
+public class JpaConfig {
+
+    private final EntityManager em;
+
+    public JpaConfig(EntityManager em) {
+        this.em = em;
+    }
+
+    @Bean
+    public ItemService itemService() {
+        return new ItemServiceV1(itemRepository());
+    }
+
+    @Bean
+    public ItemRepository itemRepository() {
+        return new JpaItemRepositoryV1(em);
+    }
+}
+```
+
+### ItemServiceApplication - 변경
+
+```java
+@Slf4j
+@Import(JpaConfig.class)
+@SpringBootApplication(scanBasePackages = "hello.itemservice.web")
+public class ItemServiceApplication {
+    ...
+}
+```
+
+`JpaConfig`를 사용하도록 변경했다.
+
+### 테스트 실행
+
+테스트를 싱행하면 정상적으로 실행 된다.
+
+> [!TIP]
+> JPA를 설정하려면 `EntityManagerFactory`, JPA 트랜잭션 매니저(`JpaTransactionManager`), 데이터소스 등등 다양한 설정을 해야 한다. 스프링 부트는 이 과정을 모두 자동화 해준다.
+
 ## JPA 적용2 - 리포지토리 분석
 
+`JpaItemRepositoryV1`코드를 분석해보자.
+
+### save() 
+
+```java
+@Override
+public Item save(Item item) {
+    em.persist(item);
+    return item;
+}
+```
+
+- `em.persist(item)`: JPA에서 객체를 테이블에 저장할 때는 엔티티 매니저가 제공하는 `persist()`메서드를 사용하면 된다.
+
+#### JPA가 만들어서 실행한 SQL
+
+```sql
+insert into item (item_name,price,quantity,id) values (?,?,?,default)
+```
+
+JPA가 만들어서 실행한 SQL을 보면 `id`에 값이 빠져있는 것을 확인할 수 있다. PK 키 생성전략을 `IDENTITY`로 사용했기 때문에 JPA가 이런 쿼리를 만들어서 실행한 것이다. 물론 쿼리 실행 이후에 `Item`객체의 `id`필드에 데이터베이스가 생성한 PK값이 들어간다.(JPA가 INSERT SQL 실행 이후에 생성된 ID결과를 받아서 넣어준다.)
+
+PK 매핑 참고
+
+```java
+@Data
+@Entity
+public class Item {
+
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    ...
+}
+```
+
+### update()
+
+```java
+@Override
+public void update(Long itemId, ItemUpdateDto updateParam) {
+    Item findItem = em.find(Item.class, itemId);
+    findItem.setItemName(updateParam.getItemName());
+    findItem.setPrice(updateParam.getPrice());
+    findItem.setQuantity(updateParam.getQuantity());
+}
+```
+
+#### JPA가 만들어서 실행한 SQL
+
+```sql
+update item set item_name=?, price=?, quantity=? where id=?
+```
+
+- `em.update()`같은 메서드를 전혀 호출하지 않았다. 그런데 어떻게 UPDATE SQL이 실행되는 걸까>
+- JPA는 트랜잭션이 커밋되는 시점에, 변경된 엔티티 객체가 있는지 확인한다. 특정 엔티티 객체가 변경된 경우에는 UPDATE SQL을 실행한다.
+- JPA가 어떻게 변경된 엔티티 객체를 찾는지 명확하게 이해햐려면 영속성 컨텍스트라는 JPA내부 원리를 이해해야 한다. 지금은 트랜잭션 커밋 시점에 JPA가 변경된 엔티티 객체를 찾아서 UPDATE SQL을 수행한다고 이해햐면 된다.
+- 테스트의 경우 마지막에 트랜잭션이 롤백되기 때문에 JPA는 UPDATE SQL을 실행하지 않는다. 테스트에서 UPDATE SQL을 확인하려면 `@Commit`을 붙이면 확인할 수 있다.
+
+### findById()
+
+```java
+@Override
+public Optional<Item> findById(Long id) {
+    Item item = em.find(Item.class, id);
+    return Optional.ofNullable(item);
+}
+```
+
+JPA에서 엔티티 객체를 PK를 기준으로 조회할 때는 `find()`를 사용하고 조회타입과 PK값을 주면 된다. 그러면 JPA가 다음과 같은 조회 SQL응ㄹ 만들어서 실행하고, 결과로 객체를 바로 변환해준다.
+
+#### JPA가 만들어서 실행한 SQL
+
+```sql
+select
+    item0_.id as id1_0_0_,
+    item0_.item_name as item_name2_0_0_,
+    item0_.price as price3_0_0_,
+    itme0_.quantity as quantity4_0_0
+from item item0_
+where item0_.id=?
+```
+
+- JPA(하이버네이트)가 만들어서 실행한 SQL은 별칭이 조금 복잡하다. 조인이 발생하거나 복잡한 조건에서도 문제 없도록 기계적으로 만들다 보니 이런 결과가 나온 듯 하다
+- JPA에서 단순히 PK를 기준으로 조회하는 것이 아닌, 여러 데이터를 복잡한 조건으로 데이터를 조회하려면 어떻게 하면 될까? (-> jpql 이라는 것을 사용하면 된다.)
+
+### findAll
+
+```java
+@Override
+public List<Item> findAll(ItemSearchCond cond) {
+    String jpql = "select i from Item i";
+
+    // 동적 쿼리 생략
+
+    TypedQuery<Item> query = em.createQuery(jpql, Item.class);
+    return query.getResultList();
+}
+```
+
+#### JPQl
+
+- JPA는 JPQL(Java Persistence Query Language)이라는 객체지향 쿼리 언어를 제공한다. 주로 여러 데이터를 복잡한 조건으로 조회할 때 사용한다.
+- SQL이 테이블 대상으로 한다면, JPQL은 엔티티 객체를 대상으로 SQL을 실행한다 생각하면 된다. 엔티티 객체를 대상으로 하기 때문에 `from`다음에 `Item`엔티티 객체 이름이 들어간다. 엔티티 객체와 속성의 대소문자는 구분해야 한다.
+- JPQL은 SQL과 문법이 거의 비슷하기 때문에 개발자들이 쉽게 적응할 수 있다.
+- 결과적으롤 JPQL을 실행하면 그 안에 포함된 엔티티 객체의 매핑 정보를 활용해서 SQL을 만들게 된다.
+
+#### 실행된 JPQL
+
+```sql
+select i from Item i
+where i.itemName like concat('%',:itemName,'%')
+    and i.price <= :maxPrice
+```
+
+#### JPQL을 통해 실행된 SQL
+
+```sql
+select
+  item0_.id as id1_0_,
+  item0_.item_name as item_nam2_0_,
+  item0_.price as price3_0_,
+  item0_.quantity as quantity4_0_
+from item item0_
+where (item0_.item_name like ('%'||?||'%'))
+  and item0_.price<=?
+```
+
+**(참고) 파라미터**
+
+- JPQL에서 파라미터는 다음과 같이 입력한다.
+  - `where price <= :maxPrice`
+- 파라미터 바인딩은 다음과 같이 사용한다.
+  - `query.setParameter("maxPrice", maxPrice)`
+
+### 동적 쿼리 문제
+
+JPA를 사용해도 동적 쿼리 문제가 남아있다. 동적 쿼리는 뒤에서 설명하는 Querydsl이라는 기술을 활용하면 매우 깔끔하게 사용할 수 있다. 실무에서는 동적 쿼리 문제때문에, JPA를 사용할 때 Querydsl도 함께 선택하게 된다.
+
 ## JPA 적용3 - 예외 반환
+
+JPA의 경우 예외가 발생하면 JPA 예외가 발생하게 된다.
+
+```java
+@Repository
+@Transactional
+public class JpaItemRepositoryV1 implements ItemRepository {
+
+    private final EntityManager em;
+
+    @Override
+    Public Item save(Item item) {
+        em.persist(item);
+        return item;
+    }
+}
+```
+
+- `EntityManager`는 순수한 JPA 기술이고, 스프링과는 관계가 없다. 따라서 엔티티 매니저는 예외가 발생하면 JPA관련 예외를 발생시킨다.
+- JPA는 `PersistenceException`과 그 하위 예외를 발생시킨다.
+  - 추가로 JPA는 `IllegalStateExcepiton`, `IllegalArgumentException`을 발생시킬 수 있다.
+- 그렇다면 JPA예외를 스프링 예외 추상화(`DataAccessException`)로 어떻게 변환할 수 있을까?
+- 비밀은 바로 `@Repository`에 있다.
+
+### 예외 반환 전
+
+<img src="./imgs/예외_반환_전.png"><br>
+
+### @Repository의 기능
+
+- `@Repository`가 붙은 클래스는 컴포넌트 스캔의 대상이 된다.
+- `@Repository`가 붙은 클래스는 예외 변환 AOP의 적용 대상이 된다.
+  - 스프링과 JPA를 함께 사용하는 경우 스프링은 내부적으로 JPA예외 변환기(`PersistenceExceptionTranslator`)를 등록하면 된다.
+  - 예외 변환 AOP 프록시는 JPA관련 예외가 발생하면 JPA예외 변환기를 통해 발생한 예외를 스프링 데이터 접근 예외로 변환한다.
+
+### 예외 반환 후
+
+<img src="./imgs/예외_반환_후.png"><br>
+
+결과적으로 리포지토리에 `@Repository`애노테이션만 있으면 스프링이 예외 변환을 처리하는 AOP를 만들어준다.
+
+### 참고
+
+- 스프링 부트는 `PersistenceExceptionTranslationPostProcessor`를 자동으로 등록하는데, 여기에서 `@Repository`를 AOP 프록시로 만드는 어드바이저가 등록된다.
+- 복잡한 과정을 거쳐서 실제 예외를 반환하는데, 실제 JPA 예외를 변환하는 코드는 `EntityManagerFactoryUtils.convertJpaAccessExceptionIfPossible()`이다.
