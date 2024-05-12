@@ -3837,3 +3837,205 @@ JPA, 스프링 데이터 JPA, Querydsl을 기본으로 사용하고, 만약 복�
 - 이렇게 하면서 구조의 복잡함 없이 단순하게 개발할 수 있었다.
 - 진행하는 프로젝트의 규모가 작고, 속도가 중요하고, 프로토타입 같은 시작 단계라면 이렇게 단순하면서 라이브러리의 지원을 최대한 편리하게 받는 구조가 더 나은 선택일 수 있다.(하지만 이 구조는 리포지토리의 구현 기술이 변경되면 수 많은 코드를 변경해야 하는 단점이 있다.)
 - 이런 선택에서 하나의 정답은 없다. 이런 트레이드 오프를 알고, 현재 상황에 더 맞는 적절한 선택을 하는게 중요하다.
+
+# 스프링 트랜잭션 이해
+
+## 스프링 트랜잭션 소개
+
+앞서 DB1편 [스프링과 문제 해결 - 트랜잭션]을 통해 스프링이 제공하는 트랜잭션 기능이 왜 필요하고, 어떻게 동작하는지 내부 원리를 알아보았다.
+
+이번에는 스프링 트랜잭션을 더 깊이있게 학습하고, 또 스프링 트랜잭션이 제공하는 다양한 기능들을 자세히 알아보자. 먼저, 앞서 지금까지 학습한 스프링 트랜잭션을 간략히 복습하자.
+
+### 스프링 트랜잭션 추상화
+
+각각의 데이터 접근 기술들을 트랜잭션을 처리하는 방식에 차이가 있다. 예를들어 JDBC기술과 JPA기술은 트랜잭션을 사용하는 코드 자체가 다르다.
+
+#### JDBC 트랜잭션 코드 예시
+
+```java
+public void accountTransfer(String fromId, String toId, int money) throws SQLException {
+    Connection con = dataSource.getConnection();
+    try {
+        con.setAutoCommit(false); //트랜잭션 시작
+
+        //비즈니스 로직
+        bizLogic(con, fromId, toId, money);
+        con.commit(); //성공시 커밋
+    } catch (Exception e) {
+        con.rollbaack(); //실패시 롤백
+        throw new IllegalStateException(e);
+    } finally {
+        release(con);
+    }
+}
+```
+
+#### JPA 트랜잭션 코드 예시 
+
+```java
+public static void main(String[] args) {
+
+    //엔티티 매니저 팩토리 생성
+    EntityManagerFactory emf = Persistence.createEntityManagerFactory("jpabook"); //엔티티 매니저 생성
+    EntityManager em = emf.createEntityManager(); //엔티티 매니저 생성
+    EntityTransaction tx = em.getTransaction(); // 트랜젝션 기능 획득
+
+    try {
+        tx.begin(); //트랜잭션 시작
+        logic(em); //비즈니스 로직
+        tx.commit(); //트랜잭션 커밋
+    } catch (Exception e) {
+        tx.rollback(); //트랜잭션 롤빅
+    } finally {
+        e.close(); //엔티티 매니저 종료
+    }
+    emf.close(); //엔티티 매니저 팩토리 종료
+}
+```
+
+따라서 JDBC 기술을 사용하다가 JPA 기술로 변경하게 되면 트랜잭션을 사용하는 코드도 모두 함께 변경해야 한다.
+
+스프링은 이런 문제를 해결하기 위해 트랜잭션 추상화를 제공한다. 트랜잭션을 사용하는 입장에서는 스프링 트랜잭션 추상화를 통해 둘을 동일한 방식으로 사용할 수 있게 되는 것이다.
+
+스프링은 `PlatformTransactionManager`라는 인터페이스를 통해 트랜잭션을 추상화한다.
+
+### PlatformTransactionManager 인터페이스
+
+```java
+package org.springframework.transaction;
+
+public interface PlatformTransactionManager extends TransactionManager {
+    TransactionStatus getTransaction(@Nullable TransactionDefinition definition) throws TransactionException;
+
+    void commit(TransactionStatus status) throws TransactionException;
+    void rollback(TransactionStatus status) throws TransactionException;
+}
+```
+
+트랜잭션은 트랜잭션 시작(획득), 커밋, 롤백으로 단순하게 추상화 할 수 있다.
+
+스프링은 트랜잭션을 추상화해서 제공할 뿐만 아니라, 실무에서 주로 사용하는 데이터 접근 기술에 대한 트랜잭션 매니저의 구현체도 제공한다. 우리는 필요한 구현체를 스프링 빈으로 등록하고 주입 받아서 사용하기만 하면 된다.
+
+<img src="./imgs/PlatformTransactionManager.png"><br>
+
+여기에 더해서 스프링 부트는 어떤 데이터 접근 기술을 사용하는지를 자동으로 인식해서 적절한 트랜잭션 매니저를 선택해서 스프링 빈으로 등록해주기 때문에 트랜잭션 매니저를 선택하고 등록하는 과정도 생략할 수 있다. 예를 들어서 `JdbcTemplate`, `MyBatis`를 사용하면 `DataSourceTransactionManager(JdbcTransactionManager)`를 스프링 빈으로 등록하고, JPA를 사용하면 `JpaTransactionManager`를 스프링 빈으로 등록해준다.
+
+(참고) 스프링 5.3부터는 JDBC 트랜잭션을 관리할 때 `DataSourceTransactionManager`를 상속받아서 약간의 기능을 확장한 `JdbcTransactionManager`를 제공한다. 둘의 기능 차이는 크지 않으므로 같은 것으로 이애하면 된다.
+
+### 스프링 트랜잭션 사용 방식
+
+`platformTransactionManager`를 사용하는 방법은 크게 2가지가 있다.
+
+- 선언적 트랜잭션 관리(Declarative Transaction Management)
+  - `@Transactional`애노테이션 하나만 선언해서 매우 편리하게 트랜잭션을 적용하는 것을 선언적 트랜잭션 관리라 한다.
+  - 선언적 트랜잭션 관리는 과거 XML에 설정하기도 했다.
+  - 이름 그대로 해당 로직에 트랜잭션을 적용하겠다라고 어딘가에 선언하기만 하면 트랜잭션이 적용되는 방식이다.
+- 프로그래밍 방식의 트랜잭션 관리(Programmatic Transaction Management)
+  - 트랜잭션 매니저 또는 트랜잭션 템플릿 등을 사용해서 트랜잭션 관련 코드를 직접 작성하는 것을 프로그래밍 방식의 트랜잭션 관리라 한다.
+
+프로그래밍 방식의 트랜잭션 관리를 사용하게 되면, 애플리케이션 코드가 트랜잭션이라는 기술 코드와 강하게 결합되는 단점이 있다.
+
+선언적 트랜잭션 관리가 프로그래밍 방식에 비해서 훨씬 간편하고 실용적이기 때문에 실무에서는 대부분 선언적 트랜잭션 관리를 사용한다.
+
+### 선언적 트랜잭션과 AOP
+
+`@Transactional`을 통한 선언적 트랜잭션 관리 방식을 사용하게 되면 기본적으로 프록시 방식의 AOP가 적용된다.
+
+#### 프록시 도입 전
+
+<img src="./imgs/프록시_도입_전.png"><br>
+
+트랜잭션을 처리하기 위한 프록시를 도입하기 전에는 서비스 로직에서 트랜잭션을 직접 시작했다.
+
+서비스 계층의 트랜잭션 사용 코드 예시
+
+```java
+//트랜잭션 시작
+TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
+
+try {
+    //비즈니스 로직
+    bizLogic(fromId, toId, money);
+    transactionManager.commit(status); //성공시 커밋
+} catch (Exception e) {
+    transactionManager.rollback(status); //실패시 롤백
+    throw new IllegalStateException(e);
+}
+```
+
+#### 프록시 도입 후
+
+<img src="./imgs/프록시_도입_후.png"><br>
+
+트랜잭션을 처리하기 위한 프록시를 적용하면 트랜잭션을 처리하는 객체와 비즈니스 로직을 처리하는 서비스 객체를 명확하게 분리할 수 있다.
+
+트랜잭션 프록시 코드 예시
+
+```java
+public class TransactionProxy {
+    private MemberService target;
+
+    public void logic() {
+        //트랜잭션 시작
+        TransactionStatus status = transactinManager.getTransaction(...);
+        try {
+            //실제 대상 호출
+            target.logic();
+            transcationManager.commit(status); //성공시 커밋
+        } catch (Exception e) {
+            transactionManager.rollback(status); //실패시 커밋
+            throw new IllegalStateException(e);
+        }
+    }
+}
+```
+
+트랜잭션 프록시 적용 후 서비스 코드 예시 
+
+```java
+public class Service {
+
+    public void logic() {
+        //트랜잭션 관련 코드 제거, 순수 비즈니스 로직만 남음
+        bizLogic(fromId, toId, money);
+    }
+}
+```
+
+- 프록시 도입 전: 서비스에 비즈니스 로직과 트랜잭션 처리 로직이 함께 섞여있다.
+- 프록시 도입 후: 트랜잭션 프록시가 트랜잭션 처리 로직을 모두 가져간다. 그리고 트랜잭션을 시작한 후에 실제 서비스를 대신 호출한다. 트랜잭션 프로깃 덕분에 서비스 계층에는 순수한 비즈니스 로직만 남길 수 있다.
+
+### 프록시 도입 후 전체 과정
+
+<img src="./imgs/프록시_도입_후_전체_과정.png"><br>
+
+- 트랜잭션은 커넥션에 `con.setAutocommit(false)`를 지정하면서 시작한다
+- 같은 트랜잭션을 유지하려면 같은 데이터베이스 커넥션을 사용해야 한다.
+- 이것을 위해 스프링 내부에서는 트랜잭션 동기화 매니저가 사용된다.
+- `JdbcTemplate`을 포함한 대부분의 데이터 접근 기술들은 트랜잭션을 유지하기 위해 내부에서 트랜잭션 동기화 매니저를 통해 리소스(커넥션)를 동기화 한다.
+
+### 스프링이 제공하는 트랜잭션 AOP
+
+스프링의 트랜잭션은 매우 중요한 기능이고, 전세계 누구나 사용하는 기능이다. 스프링은 트랜잭션 AOP를 처리하기 위한 모든 기능을 제공한다. 스프링 부트를 사용하면 트랜잭션 AOP를 처리하기 위해 필요한 스프링 빈들도 자동으로 등록해준다.
+
+개발자는 트랜잭션 처리가 필요한 곳에 `@Transactional`애노테이션만 붙여주면 된다. 스프링의 트랜잭션 AOP는 이 애노테이션을 인식해서 트랜잭션을 처리하는 프록시를 적용해준다.
+
+@Transactional(`org.springframework.transaction.annotation.Transactional`)
+
+## 프로젝트 생성
+
+## 트랜잭션 적용 확인
+
+## 트랜잭션 적용 위치
+
+## 트랜잭션 AOP 주의 사항 - 프록시 내부호출1
+
+## 트랜잭션 AOP 주의 사항 - 프록시 내부호출2
+
+## 트랜잭션 AOP 주의 사항 - 초기화 시점
+
+## 트랜잭션 옵션 소개
+
+## 예외와 트랜잭션 커밋, 롤백 - 기본
+
+## 예외와 트랜잭션 커밋, 롤백 - 활용
