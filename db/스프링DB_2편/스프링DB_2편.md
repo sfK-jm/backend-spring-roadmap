@@ -5123,3 +5123,446 @@ void bizException() {
 그런데 비즈니스 상황에 따라 체크 예외의 경우에도 트랜잭션을 커밋하지 않고, 롤백하고 싶을 수 있다. 이때는 `rollbackFor`옵션을 사용하면 된다.
 
 런타임 예외는 항상 롤백된다. 체크 예외의 경우 `rollbackFor`옵션을 사용해서 비즈니스 상황에 따라서 커밋과 롤백을 선택하면 된다.
+
+# 스프링 트랜잭션 전파1 - 기본
+
+## 스프링 트랜잭션 전파1 - 커밋, 롤백
+
+트랜잭션이 둘 이상 있을 때 어떻게 동작하는지 자세히 알아보고, 스프링이 제공하는 트랜잭션 전파(propagation)라는 개념도 알아보자. (트랜잭션 전파를 이해하는 과정을 통해서 스프링 트랜잭션의 동작 원리도 더 깊이있게 이해할 수 있을 것이다.)
+
+먼저 간단한 스프링 트랜잭션 코드를 통해 기본 원리를 학습하고, 이후 실제 예제를 통해 어떻게 활용하는지 알아보자.
+
+### BasicTxTest 생성
+
+```java
+package hello.springtx.propagation;
+
+import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.interceptor.DefaultTransactionAttribute;
+
+import javax.sql.DataSource;
+
+@Slf4j
+@SpringBootTest
+public class BasicTxTest {
+
+    @Autowired
+    PlatformTransactionManager txManager;
+
+    @TestConfiguration
+    static class Config {
+        @Bean
+        public PlatformTransactionManager transactionManager(DataSource dataSource) {
+            return new DataSourceTransactionManager(dataSource);
+        }
+    }
+
+    @Test
+    void commit() {
+        log.info("트랜잭션 시작");
+        TransactionStatus status = txManager.getTransaction(new DefaultTransactionAttribute());
+
+        log.info("트랜잭션 시작");
+        txManager.commit(status);
+        log.info("트랜잭션 완료");
+    }
+
+    @Test
+    void rollback() {
+        log.info("트랜잭션 시작");
+        TransactionStatus status = txManager.getTransaction(new DefaultTransactionAttribute());
+
+        log.info("트랜잭션 롤백 시작");
+        txManager.rollback(status);
+        log.info("트랜잭션 롤백 완료");
+    }
+}
+```
+
+`@TestConfiguration`: 해당 테스트에서 필요한 스프링 설정을 추가로 할 수 있다.
+
+`DataSourceTransactionManager`를 스프링 빈으로 등록했다. 이후 트랜잭션 매니저인 `PlatformTransactionManager`를 주입 받으면 방금 등록한 `DataSourceTransactionManager`가 주입된다.
+
+(참고) 실행하기 전에 트랜잭션 관련 로그를 확인할 수 있도록 다음을 추가하자.
+
+```properties
+logging.level.org.springframework.transaction.interceptor=TRACE
+logging.level.org.springframework.jdbc.datasource.DataSourceTransactionManager=DEBUG
+#JPA log
+logging.level.org.springframework.orm.jpa.JpaTransactionManager=DEBUG
+logging.level.org.hibernate.resource.transaction=DEBUG
+#JPA SQL
+logging.level.org.hibernate.SQL=DEBUG
+```
+
+### 테스트 실행
+
+#### commit()
+
+- `txManager.getTransaction(new DefaultTransactionAttribute())`: 트랜잭션 매니저를 통해 트랜잭션을 시작(획득)한다.
+- `txManager.commit(status)`: 트랜잭션을 커밋한다.
+
+```log
+: 트랜잭션 시작
+: Creating new transaction with name [null]: PROPAGATION_REQUIRED,ISOLATION_DEFAULT
+: Acquired Connection [HikariProxyConnection@1393428647 wrapping conn0: url=jdbc:h2:mem:a482dd6f-6da6-4104-9fdc-a0d64de1fba1 user=SA] for JDBC transaction
+: Switching JDBC Connection [HikariProxyConnection@1393428647 wrapping conn0: url=jdbc:h2:mem:a482dd6f-6da6-4104-9fdc-a0d64de1fba1 user=SA] to manual commit
+: 트랜잭션 커밋 시작
+: Initiating transaction commit
+: Committing JDBC transaction on Connection [HikariProxyConnection@1393428647 wrapping conn0: url=jdbc:h2:mem:a482dd6f-6da6-4104-9fdc-a0d64de1fba1 user=SA]
+: Releasing JDBC Connection [HikariProxyConnection@1393428647 wrapping conn0: url=jdbc:h2:mem:a482dd6f-6da6-4104-9fdc-a0d64de1fba1 user=SA] after transaction
+: 트랜잭션 커밋 완료
+```
+
+#### rollback()
+
+- `txManager.getTransaction(new DefaultTransactionAttribute())`: 트랜잭션 매니저를 통해 트랜잭션을 시작(획득)한다.
+- `txManager.rollback(status)`: 트랜잭션을 롤백한다.
+
+```log
+:  트랜잭션 시작
+: Creating new transaction with name [null]: PROPAGATION_REQUIRED,ISOLATION_DEFAULT
+: Acquired Connection [HikariProxyConnection@106050729 wrapping conn0: url=jdbc:h2:mem:a482dd6f-6da6-4104-9fdc-a0d64de1fba1 user=SA] for JDBC transaction
+: Switching JDBC Connection [HikariProxyConnection@106050729 wrapping conn0: url=jdbc:h2:mem:a482dd6f-6da6-4104-9fdc-a0d64de1fba1 user=SA] to manual commit
+: 트랜잭션 롤백 시작
+: Initiating transaction rollback
+: Rolling back JDBC transaction on Connection [HikariProxyConnection@106050729 wrapping conn0: url=jdbc:h2:mem:a482dd6f-6da6-4104-9fdc-a0d64de1fba1 user=SA]
+: Releasing JDBC Connection [HikariProxyConnection@106050729 wrapping conn0: url=jdbc:h2:mem:a482dd6f-6da6-4104-9fdc-a0d64de1fba1 user=SA] after transaction
+: 트랜잭션 롤백 완료
+```
+
+여기까지는 이미 앞서 학습한 내용들이어서 이해하기는 어렵지 않을 것이다.<br>다음에는 트랜잭션을 하나 더 추가해보자.
+
+## 스프링 트랜잭션 전파2 - 트랜잭션 두 번 사용
+
+이번에는 트랜잭션이 각각 따로 사용되는 경우를 확인해보자.<br>이 예제는 트랜잭션1이 완전히 끝나고나서 트랜잭션2를 수행한다.
+
+### BasicTxTest - double_commit()추가
+
+```java
+@Test
+void double_commit() {
+    log.info("트랜잭션1 시작");
+    TransactionStatus tx1 = txManager.getTransaction(new DefaultTransactionAttribute());
+    log.info("트랜잭션1 커밋");
+    txManager.commit(tx1);
+
+    log.info("트랜잭션2 시작");
+    TransactionStatus tx2 = txManager.getTransaction(new DefaultTransactionAttribute());
+    log.info("트랜잭션2 커밋");
+    txManager.commit(tx2);
+}
+```
+
+### double_commit() - 실행 로그
+
+```log
+: 트랜잭션1 시작
+: Creating new transaction with name [null]: PROPAGATION_REQUIRED,ISOLATION_DEFAULT
+: Acquired Connection [HikariProxyConnection@2017577360 wrapping conn0: url=jdbc:h2:mem:8f126f34-af6c-449c-be4c-30c8096dcde1 user=SA] for JDBC transaction
+: Switching JDBC Connection [HikariProxyConnection@2017577360 wrapping conn0: url=jdbc:h2:mem:8f126f34-af6c-449c-be4c-30c8096dcde1 user=SA] to manual commit
+: 트랜잭션1 커밋
+: Initiating transaction commit
+: Committing JDBC transaction on Connection [HikariProxyConnection@2017577360 wrapping conn0: url=jdbc:h2:mem:8f126f34-af6c-449c-be4c-30c8096dcde1 user=SA]
+: Releasing JDBC Connection [HikariProxyConnection@2017577360 wrapping conn0: url=jdbc:h2:mem:8f126f34-af6c-449c-be4c-30c8096dcde1 user=SA] after transaction
+
+: 트랜잭션2 시작
+: Creating new transaction with name [null]: PROPAGATION_REQUIRED,ISOLATION_DEFAULT
+: Acquired Connection [HikariProxyConnection@511033073 wrapping conn0: url=jdbc:h2:mem:8f126f34-af6c-449c-be4c-30c8096dcde1 user=SA] for JDBC transaction
+: Switching JDBC Connection [HikariProxyConnection@511033073 wrapping conn0: url=jdbc:h2:mem:8f126f34-af6c-449c-be4c-30c8096dcde1 user=SA] to manual commit
+: 트랜잭션2 커밋
+: Initiating transaction commit
+: Committing JDBC transaction on Connection [HikariProxyConnection@511033073 wrapping conn0: url=jdbc:h2:mem:8f126f34-af6c-449c-be4c-30c8096dcde1 user=SA]
+: Releasing JDBC Connection [HikariProxyConnection@511033073 wrapping conn0: url=jdbc:h2:mem:8f126f34-af6c-449c-be4c-30c8096dcde1 user=SA] after transaction
+```
+
+### 로그분석
+
+**트랜잭션 1**
+- `Acquired Connection [HikariProxyConnection@379409767 wrapping conn0] for JDBC transaction`
+  - 트랜잭션1을 시작하고, 커넥션 풀에서 `conn0`커넥션을 획득했다.
+- `Releasing JDBC Connection [HikariProxyConnection@2017577360 wrapping conn0] after transaction`
+  - 트랜잭션1을 커밋하고, 커넥션 풀에 `conn0`커넥션을 반납했다.
+
+**트랜잭션 2**
+- `Acquired Connection [HikariProxyConnection@511033073 wrapping conn0] for JDBC transaction`
+  - 트랜잭션2을 시작하고, 커넥션 풀에서 `conn0`커넥션을 획득했다.
+- `Releasing JDBC Connection [HikariProxyConnection@511033073 wrapping conn0] after transaction` 
+  - 트랜잭션2를 커밋하고, 커넥션 풀에 `conn0`커넥션을 반납했다.
+
+### 주의!
+
+로그를 보면 트랜잭션1과 트랜잭션2가 같은 `conn0`커넥션을 사용중이다. 이것은 중간에 커넥션 풀 때문에 그런 것이다. 트랜잭션1은 `conn0`커넥션을 모두 사용하고 커넥션 풀에 반납까지 완료했다. 이후 트랜잭션2가 `conn0`를 커넥션 풀에서 획득한 것이다. 따라서 둘은 완전이 다른 커넥션으로 인지하는 것이 맞다. (둘의 (실제 DB와 연결되는) 물리적인 커넥션은 같지만, 다시 조회한 것이므로 다른 커넥션으로 인지해야 한다.)
+
+그렇다면 둘을 구분할 수 있는 다른 방법은 없을까?
+
+히카리 커넥션 풀에서 커넥션을 획득하면 그때 히카리가 실제 커넥션을 그대로 반환하는 것이 아니라 내부 관리를 위해 히카리 프록시 커넥션이라는 객체를 생성해서 반환한다. 물론 내부에는 실제 커넥션이 포함되어 있다. 이 객체의 주소를 확인하면 커넥션 풀에서 획득한 커넥션을 구분할 수 있다.
+
+- 트랜잭션1 : `Acquired Connection [HikariProxyConnection@2017577360 wrapping conn0]`
+- 트랜잭션2 : `Acquired Connection [HikariProxyConnection@511033073 wrapping conn0]`
+
+이것을 보면 히카리 커넥션풀이 반환해주는 커넥션을 다루는 프록시 객체의 주소가 서로 다른 것을 확인할 수 있다.
+
+결과적으로 `conn0`을 통해 커넥션이 재사용된것을 확인할 수 있고, 각각의 커넥션 풀에서 커넥션을 조회한 것을 확인할 수 있다.
+
+<img src="./imgs/히카리커넥션풀_참고1.png"><br>
+
+주황색이 트랜잭션 영역이라 가정했을때 클라이언트가 트랜잭션1을 시작하고 커밋 후 돌아와서 트랜잭션2를 시작하고 커밋하는 단순한 로직이다.
+
+<img src="./imgs/히카리커넥션풀_참고2.png"><br>
+
+좀 더 자세히 확인해보자.(위 그림은 커넥션 풀을 사용하지 않는다고 가정했다. 참고로 커넥션 풀을 사용한다고 가정하더라도, 이전 예시에서 본 것 처럼 con1로 계속 같은 커넥션을 사용하는 것 처럼 보이지만 사실 이미 완전히 사용되서 반납된 커넥션을 재사용한 것이기 때문에 다르게 봐야한다.)
+
+트랜잭션이 각각 수행됨녀서 사용되는 DB 커넥션도 각각 다르다.
+
+이 경우 트랜잭션을 각자 관리하기 때문에 전체 트랜잭션을 묶을 수 없다. 예를 들어서 트랜잭션1이 커밋하고, 트랜잭션2가 롤백하는 경우 트랜잭션1에서 저장한 데이터는 커밋되고, 트랜잭션2에서 저장한 데이터는 롤백된다.
+
+다음 예제를 통해 확인해보자
+
+### BasicTxText - double_commit_rollback() 추가
+
+```java
+@Test
+void double_commit_rollback() {
+    log.info("트랜잭션1 시작");
+    TransactionStatus tx1 = txManager.getTransaction(new DefaultTransactionAttribute());
+    log.info("트랜잭션1 커밋");
+    txManager.commit(tx1);
+
+    log.info("트랜잭션2 시작");
+    TransactionStatus tx2 = txManager.getTransaction(new DefaultTransactionAttribute());
+    log.info("트랜잭션2 롤백");
+    txManager.rollback(tx2);
+}
+```
+
+- 트랜잭션 1은 커밋하고, 트랜잭션2는 롤백한다
+- 전체 트랜잭션을 묶지 않고 각각 관리했기 때문에, 트랜잭션1에서 저장한 데이터는 커밋되고, 트랜잭션2에서 저장한 데이터를 롤백된다.
+
+### double_commit_rollback() - 실행로그
+
+```log
+: 트랜잭션1 시작
+: Creating new transaction with name [null]: PROPAGATION_REQUIRED,ISOLATION_DEFAULT
+: Acquired Connection [HikariProxyConnection@1898288372 wrapping conn0: url=jdbc:h2:mem:f6ed5d68-0267-49ce-94db-c0b119bd6926 user=SA] for JDBC transaction
+: Switching JDBC Connection [HikariProxyConnection@1898288372 wrapping conn0: url=jdbc:h2:mem:f6ed5d68-0267-49ce-94db-c0b119bd6926 user=SA] to manual commit
+: 트랜잭션1 커밋
+: Initiating transaction commit
+: Committing JDBC transaction on Connection [HikariProxyConnection@1898288372 wrapping conn0: url=jdbc:h2:mem:f6ed5d68-0267-49ce-94db-c0b119bd6926 user=SA]
+: Releasing JDBC Connection [HikariProxyConnection@1898288372 wrapping conn0: url=jdbc:h2:mem:f6ed5d68-0267-49ce-94db-c0b119bd6926 user=SA] after transaction
+: 트랜잭션2 시작
+: Creating new transaction with name [null]: PROPAGATION_REQUIRED,ISOLATION_DEFAULT
+: Acquired Connection [HikariProxyConnection@816095505 wrapping conn0: url=jdbc:h2:mem:f6ed5d68-0267-49ce-94db-c0b119bd6926 user=SA] for JDBC transaction
+: Switching JDBC Connection [HikariProxyConnection@816095505 wrapping conn0: url=jdbc:h2:mem:f6ed5d68-0267-49ce-94db-c0b119bd6926 user=SA] to manual commit
+: 트랜잭션2 롤백
+: Initiating transaction rollback
+: Rolling back JDBC transaction on Connection [HikariProxyConnection@816095505 wrapping conn0: url=jdbc:h2:mem:f6ed5d68-0267-49ce-94db-c0b119bd6926 user=SA]
+: Releasing JDBC Connection [HikariProxyConnection@816095505 wrapping conn0: url=jdbc:h2:mem:f6ed5d68-0267-49ce-94db-c0b119bd6926 user=SA] after transaction
+```
+
+로그를 보면 트랜잭션1은 커밋되지만, 트랜잭션2는 롤백되는 것을 확인할 수 있다.
+
+<img src="./imgs/double_commit_rollback1.png"><br>
+
+클라이언트에서 트랜잭션1을 시작하고 커넥션을 획득 후 커밋한다. 이후 올아와서 새로운 트랜잭션2를 시작하고 커넥션을 획득 후 롤백한다.
+
+<img src="./imgs/double_commit_rollback2.png"><br>
+
+결국 트랜잭션1과 트랜잭션2는 서로 영향이 없다.(서로 다른 커넥션을 사용)
+
+그런데 만약 트랜잭션을 각각 사용하는 것이 아니라, 트랜잭션이 이미 진행중인데, 여기에 추가로 트랜잭션을 수행하면 어떻게 될까?
+
+이제 본격적으로 트랜잭션 전파에 대해서 알아보자.
+
+## 스프링 트랜잭션 전파3 - 전파 기본
+
+트랜잭션을 이전 예시처럼 각각 사용하는 것이 아니라, 트랜잭션이 이미 진행중인데, 여기에 추가로 트랜잭션을 수행하면 어떻게 될까?  
+
+기존 트랜잭션과 별도의 트랜잭션을 진행해야 할까? 아니면 기존 트랜잭션을 그대로 이어 받아서 트랜잭션을 수행해야 할까?
+
+이런 경우 어떻게 동작할지 결정하는 것을 트랜잭션 전파(propagation)라 한다.<br>(참고로 스프링은 다양한 트랜잭션 전파 옵션을 제공한다.)
+
+예제를 통해 본격적으로 스프링이 제공하는 트랜잭션 전파에 대해서 알아보자.<br>(참고로 지금부터 설명하는 내용은 트랜잭션 전파의 기본 옵션인 `REQUIRED`를 기준으로 설명한다. 옵션에 대한 내용은 마지막에 설명한다.)
+
+
+### 외부 트랜잭션이 수행중인데, 내부 트랜잭션이 추가로 실행됨
+
+<img src="./imgs/외부_트랜잭션이_수행중인데_내부_트랜잭션이_추가로_수행1.png.png"><br>
+
+- 외부 트랜잭션이 수행중이고, 아직 끝나지 않았는데, 내부 트랜잭션이 수행된다.
+- 외부 트랜잭션이라고 이름 붙인 것은 둘 중 상대적으로 밖에 있기 때문에 외부 트랜잭션이라 한다. 처음 시작된 트랜잭션으로 이해하면 된다.
+- 내부 트랜잭션은 외부에 트랜잭션이 수행되고 있는 도중에 호출되기 때문에 마치 내부에 있는것 처럼 보여서 내부 트랜잭션이라 한다.
+
+<img src="./imgs/외부_트랜잭션이_수행중인데_내부_트랜잭션이_추가로_수행2.png.png"><br>
+
+- 스프링은 이 경우 외부 트랜잭션과 내부 트랜잭션을 묶어서 하나의 트랜잭션을 만들어준다. 내부 트랜잭션이 외부 트랜잭션에 참여하는 것이다. 이것이 기본 동작이고, 옵션을 통해 다른 동작 방식도 선택할 수 있다.(다른 동작 방식은 뒤에 설명한다.)
+
+### 물리 트랜잭션, 논리 트랜잭션
+
+<img src="./imgs/물리_트랜잭션,논리_트랜잭션.png"><br>
+
+- 스프링은 이해를 돕기 위해 논리 트랜잭션과 물리 트랜잭션이라는 개념을 나눈다.
+- 논리 트랜잭션들은 하나의 물리 트랜잭션으로 묶인다.
+- 물리 트랜잭션은 우리가 이해하는 실제 데이터베이스에 적용하는 트랜잭션을 뜻한다. 실제 커넥션을 통해서 트랜잭션을 시작(`setAutoCommit(false)`)라 하고, 실제 커넥션을 통해서 트랜잭션을 시작(`setAufoCommit(false)`)하고, 실제 커넥션을 통해서 커밋, 롤백하는 단위이다.
+- 논리 트랜잭션은 트랜잭션 매니저를 통해 트랜잭션을 사용하는 단위이다.
+- 이러한 논리 트랜잭션 개념은 트랜잭션이 진행되는 중에 내부에 추가로 트랜잭션을 사용하는 경우에 나타난다. 단순히 트랜잭션이 하나의 경우 둘을 구분하지는 않는다.(더 정확히는 `REQUIRED`전파 옵션을 사용하는 경우에 나타나고, 이 옵션은 뒤에서 설명한다.)
+
+그럼 왜 이렇게 논리 트랜잭션과 물리 트랜잭션을 나누어 설명하는 것일까?<br>트랜잭션이 사용중일 때 또다른 트랜잭션이 내부에 사용되면 여러가지 복잡한 상황이 발생한다.<br>이때 논리 트랜잭션 개념을 도입하면 다음과 같은 단순한 원칙을 만들 수 있다.
+
+#### 원칙
+
+- 모든 논리 트랜잭션이 커밋되어야 물리 트랜잭션이 커밋된다.
+- 하나의 논리 트랜잭션이라도 롤백되면 물리 트랜잭션은 롤백된다.
+
+풀어서 설명하면 이렇게 된다. 모든 트랜잭션 매니저를 커밋해야 물리 트랜잭션이 커밋된다. 하나의 트랜잭션 매니저라도 롤백하면 물리 트랜잭션은 롤백된다.
+
+<img src="./imgs/물리트랜잭션1.png"><br>
+
+모든 논리 트랜잭션이 커밋 되었으므로 물리 트랙잭션도 커밋된다
+
+<img src="./imgs/물리트랜잭션2.png"><br>
+
+외부 논리 트랜잭션이 롤백 되었으므로 물리 트랜잭션은 롤백된다.
+
+<img src="./imgs/물리트랜잭션3.png"><br>
+
+내부 논리 트랜잭션이 롤백 되었으므로 물리 트랜잭션은 롤백된다.
+
+## 스프링 트랜잭션 전파4 - 전파 예제
+
+예제 코드를 통해서 스프링 트랜잭션 전파를 자세히 알아보자.
+
+아래와 같은 상황을 만들어보자.
+
+<img src="./imgs/물리트랜잭션1.png"><br>
+
+### BasicTxTest - inner_commit() 추가
+
+```java
+@Test
+void inner_commit() {
+    log.info("외부 트랜잭션 시작");
+    TransactionStatus outer = txManager.getTransaction(new DefaultTransactionAttribute());
+    log.info("outer.isNewTransaction()={}", outer.isNewTransaction());
+
+    log.info("내부 트랜잭션 시작");
+    TransactionStatus inner = txManager.getTransaction(new DefaultTransactionAttribute());
+    log.info("inner.isNewTransaction()={}", inner.isNewTransaction());
+    log.info("내부 트랜잭션 커밋");
+    txManager.commit(inner);
+
+    log.info("외부 트랜잭션 커밋");
+    txManager.commit(outer);
+}
+```
+
+- 외부 트랜잭션이 수행중인데, 내부 트랜잭션을 추가로 수행했다.
+- 외부 트랜잭션은 처음 수행된 트랜잭션이다. 이 경우 신규 트랜잭션(`isNewTransaction=true`)이 된다.
+- 내부 트랜잭션을 시작하는 시점에는 이미 외부 트랜잭션이 진행중인 상태이다. 이 경우 내부 트랜잭션은 외부 트랜잭션에 참여한다.
+- **트랜잭션 참여**
+  - 내부 트랜잭션이 보위 트랜잭션에 참여한다는 뜻은 내부 트랜잭션이 외부 트랜잭션을 그대로 이어 받아서 따른다는 뜻이다.
+  - 다른 관점으로 보면 외부 트랜잭션의 범위가 내부 트랜잭션까지 넓어진다는 뜻이다.
+  - 외부에서 시작된 물리적인 트랜잭션 범위가 내부 트랜잭션까지 넓어진다는 뜻이다.
+  - 정리하면 **외부 트랜잭션과 내부 트랜잭션이 하나의 물리 트랜잭션으로 묶이는 것**이다.
+- 내부 트랜잭션은 이미 진행중인 외부 트랜잭션에 참여한다. 이 경우 신규 트랜잭션이 아니다.(`isNewTransaction=false`)
+- 예제에서는 둘 다 성공적으로 커밋했다.
+
+위 예제에서는 외부 트랜잭션과 내부 트랜잭션이 하나의 물리 트랜잭션으로 묶인다고 설명했다.<br>그런데 코드를 잘 보면 커밋을 두 번 호출했다. (`txManager.commit(inner);`, `txManager.commit(outer);`)
+
+트랜잭션을 생각해보면 하나의 커넥션에 커밋은 한번만 호출할 수 있다. 커밋이나 롤백을 하면 해당 트랜잭션은 끝나버린다.
+
+스프링은 어떻게 외부 트랜잭션과 내부 트랜잭션을 묶어서 하나의 물리 트랜잭션으로 묶어서 동작하게 하는지 자세히 알아보자.
+
+위 예제를 실행하면 다음과 같은 결과가 나온다.
+
+### inner_commit() - 실행 결과
+
+```log
+: 외부 트랜잭션 시작
+: Creating new transaction with name [null]: PROPAGATION_REQUIRED,ISOLATION_DEFAULT
+: Acquired Connection [HikariProxyConnection@1535276950 wrapping conn0: url=jdbc:h2:mem:2484997e-2738-4799-b70f-f5a8d271d8f4 user=SA] for JDBC transaction
+: Switching JDBC Connection [HikariProxyConnection@1535276950 wrapping conn0: url=jdbc:h2:mem:2484997e-2738-4799-b70f-f5a8d271d8f4 user=SA] to manual commit
+: outer.isNewTransaction()=true
+: 내부 트랜잭션 시작
+: Participating in existing transaction
+: inner.isNewTransaction()=false
+: 내부 트랜잭션 커밋
+: 외부 트랜잭션 커밋
+: Initiating transaction commit
+: Committing JDBC transaction on Connection [HikariProxyConnection@1535276950 wrapping conn0: url=jdbc:h2:mem:2484997e-2738-4799-b70f-f5a8d271d8f4 user=SA]
+: Releasing JDBC Connection [HikariProxyConnection@1535276950 wrapping conn0: url=jdbc:h2:mem:2484997e-2738-4799-b70f-f5a8d271d8f4 user=SA] after transaction
+```
+
+- 내부 트랜잭션을 시작할 때 `Participating in existing transaction`이라는 메시지를 확인할 수 있다. 이 메시지는 내부 트랜잭션이 기존에 존재하는 외부 트랜잭션에 참여한다는 뜻이다.
+- 실행 결과를 보면, 외부 트랜잭션을 시작하거나 커밋할 때는 DB커넥션을 통한 물리 트랜잭션을 시작(`manual commit`)하고, DB 커넥션을 통해 커밋하는 것을 확인할 수 있다. 그런데 내부 트랜잭션을 시작하거나 커밋할 때는 DB 커넥션을 통해 커밋하는 로그를 전혀 확인할 수 없다.
+- 정리하면 외부 트랜잭션만 물리 트랜잭션을 시작하고, 커밋한다.
+- 만약 내부 트랜잭션이 실제 물리 트랜잭션을 커밋하면 트랜잭션이 끝나버리기 때문에, 트랜잭션을 처음 시작한 외부 트랜잭션까지 이어갈 수 없다. 따라서 내부 트랜잭션은 DB커넥션을 통한 물리 트랜잭션을 커밋하면 안된다.
+- **스프링은 이렇게 여러 트랜잭션이 함께 사용되는 경우, 처음 트랜잭션을 시작한 외부 트랜잭션이 실제 물리 트랜잭션을 관리하도록 한다.** 이를 통해 트랜잭션 중복 커밋 문제를 해결한다.
+
+트랜잭션 전파가 실제 어떻게 동작하는지 그림으로 알아보자.
+
+### 요청 흐름
+
+<img src="./imgs/트랜잭션_전파의_동작.png"><br>
+
+**요청 흐름 - 외부 트랜잭션**
+
+1. `txManager.getTransaction()`를 호출해서 외부 트랜잭션을 시작한다.
+2. 트랜잭션 매니저는 데이터소스를 통해 커넥션을 생성한다.
+3. 생성한 커넥션을 수동 커밋 모드(`setAutoCommit(false)`)로 설정한다. - **물리 트랜잭션 시작**
+4. 트랜잭션 매니저는 트랜잭션 동기화 매니저에 커넥션을 보관한다.
+5. 트랜잭션 매니저는 트랜잭션을 생성한 결과를 `TransactionStatus`에 담아서 변환하는데, 여기에 신규 트랜잭션의 여부가 담겨 있다. `isNewTransaction`를 통해 신규 트랜잭션 여부를 확인할 수 있다. 트랜잭션을 처음 시작했으므로 신규 트랜잭션이다.(`true`)
+6. 로직1이 사용되고, 커넥션이 필요한 경우 트랜잭션 동기화 매니저를 통해 트랜잭션이 적용된 커넥션을 획득해서 사용한다.
+
+**요청 흐름 - 내부 트랜잭션**
+
+7. `txManager.getTransaction()`를 호출해서 내부 트랜잭션을 시작한다.
+8. 트랜잭션 매니저는 트랜잭션 동기화 매니저를 통해서 기존 트랜잭션이 존재하는지 확인한다.
+9. 기존 트랜잭션이 존재하므로 기존 트랜잭션에 참여한다. 기존 트랜잭션에 참여한다는 뜻은 사실 아무것도 하지 않는다는 뜻이다.
+    - 이미 기존 트랜잭션인 외부 트랜잭션에서 물리 트랜잭션은 시작했다. 그리고 물리 트랜잭션이 시작된 커넥션을 트랜잭션 동기화 매니저에 담아두었다.
+    - 따라서 이미 물리 트랜잭션이 진행중이므로 그냥 두면 이후 로직이 기존에 시작된 트랜잭션을 자연스럽게 사용하게 되는 것이다.
+    - 이후 로직은 자연스럽게 트랜잭션 동기화 매니저에 보관된 기존 커넥션을 사용하게 된다.
+10. 트랜잭션 매니저는 트랜잭션을 생성한 결과를 `TransactionStatus`에 담아서 반환하는데, 여기에서 `isNewTransaction`를 통해 신규 트랜잭션 여부를 확인할 수 있다. 여기서는 기존 트랜잭션에 참여했기 때문에 신규 트랜잭션이 아니다. (`false`)
+11. 로직2가 사용되고, 커넥션이 필요한 경우 트랜잭션 동기화 매니저를 통해 외부 트랜잭션이 보관한 커넥션을 획득해서 사용한다.
+
+### 응답 흐름
+
+<img src="./imgs/응답_흐름.png"><br>
+
+**요청 흐름 - 내부 트랜잭션**
+
+12. 로직2가 끝나고 트랜잭션 매니저를 통해 내부 트랜잭션을 커밋한다.
+13. 트랜잭션 매니저는 커밋 시점에 신규 트랜잭션 여부에 따라 다르게 동작한다. 이 경우 신규 트랜잭션이 아니기 때문에 실제 커밋을 호출하지 않는다. 이 부분이 중요한데, 실제 커넥션에 커밋이나 롤백을 호출하면 물리 트랜잭션이 끝나버린다. 아직 트랜잭션이 끝난것이 아니기 때문에 실제 커밋을 호출하면 안된다. 물리 트랜잭션은 외부 트랜잭션을 종료할 때 까지 이어져야한다.
+
+**응답 흐름 - 외부 트랜잭션**
+
+
+14. 로직1이 끝나고 트랜잭션 매니저를 통해 외부 트랜잭션을 커밋한다.
+15. 트랜잭션 매니저는 커밋 시점에 신규 트랜잭션 여부에 따라 다르게 동작한다. 이 경우 외부 트랜잭션은 신규 트랜잭션이다. 따라서 DB 커넥션에 실제 커밋을 호출한다.
+16. 트랜잭션 매니저에 커밋(`txManager.commit(...)`)하는 것이 논리적인 커밋이라면, 실제 커넥션에 커밋하는 것을 물리 커밋이라 할 수 있다. 실제 데이터베이스에 커밋이 반영되고, 물리 트랜잭션도 끝난다.
+
+### 정리
+
+핵심은 트랜잭션 매니저에 커밋을 호출한다고해서 항상 실제 커넥션에 물리 커밋이 발생하지는 않는다는 점이다.
+
+신규 트랜잭션인 경우에만 실제 커넥션을 사용해서 물리 커밋과 롤백을 수행한다. 신규 트랜잭션이 아니면 실제 물리 커넥션을 사용하지 않는다.
+
+이러헥 트랜잭션이 내부에서 추가로 사용하면 트랜잭션 매니저에 커밋하는 것이 항상 물리 커밋으로 이어지지 않는다. 그래서 이 경우 논리 트랜잭션과 물리 트랜잭션을 나누게 된다. 또는 외부 트랜잭션과 내부 트랜잭션으로 나누어 설명하기도 한다.
+
+트랜잭션이 내부에서 추가로 사용되면, 트랜잭션 매니저를 통해 논리 트랜잭션을 관리하고, 모든 논리 트랜잭션이 커밋되면 물리 트랜잭션이 커밋된다고 이해하면 된다.
+
+## 스프링 트랜잭션 전파5 - 외부 롤백
+
+## 스프링 트랜잭션 전파6 - 내부 롤백
+
+## 스프링 트랜잭션 전파7 - REQUIRES_NEW
+
+## 스프링 트랜잭션 전파8 - 다양한 전파 옵션
