@@ -6578,3 +6578,81 @@ void recoverException_fail() {
 **"회원 가입을 시도한 로그를 남기는데 실패하더라도 회원 가입은 유지되어야 한다."**
 
 ## 트랜잭션 전파 활용7 - 복구 REQUIRED_NEW
+
+요구사항을 만족하기 위해서 로그와 관련된 물리 트랜잭션을 별도로 분리해보자.<br>바로`REQUIRED_NEW`를 사용하는 것이다.(물론 다른 여러가지 방법이 있으니 참고하자.)
+
+### recoverException_success() 추가
+
+```java
+/**
+ * memberService    @Transactional: ON
+ * memberRepository @Transactional: ON
+ * logRepository    @Transactional: ON(REQUIRED_NEW) - exception occurred
+ */
+@Test
+void recoverException_success() {
+    //given
+    String username = "로그예외_recoverException_success";
+
+    //when
+    memberService.joinV2(username);
+
+    //then: member 저장, log 롤백
+    Assertions.assertTrue(memberRepository.find(username).isPresent());
+    Assertions.assertTrue(logRepository.find(username).isEmpty());
+}
+```
+
+(참고) 예외를 복구하는 `memberService.joinV2()`를 호출한다.
+
+- **MemberService - joinV2()**: `@Transactional`을 적용하자
+- **MemberRepository - save()**: `@Transactional`을 적용하자.
+- **LogRepository - save()**: `@Transactional(propagation = Propagation.REQUIRED_NEW)`을 적용하자.
+
+그림으로 이해해보자.
+
+### REQUIRED_NEW - 물리 트랜잭션 분리
+
+<img src="./imgs/REQUIRES_NEW-물리_트랜잭션_분리.png"><br>
+
+- `MemberRepository`는 `REQUIRED`옵션을 사용한다. 따라서 기존 트랜잭션에 참여한다.
+- `LogRepository`는 트랜잭션 옵션에 `REQUIRED_NEW`를 사용했다.(따라서 신규 트랜잭션을 만든다. 참고로 현재 이 구조에서는 하나이기 때문에 논리 트랜잭션이라는 개념은 없다고 보는 게 맞다. 이해를 돕기 위해 그려진 것이니 참고하자.)
+- `REQUIRED_NEW`는 항상 새로운 트랜잭션을 만든다. 따라서 해당 트랜잭션 안에서는 DB커넥션도 별도로 사용하게 된다.
+
+### REQUIRED_NEW - 복구
+
+<img src="./imgs/REQUIRES_NEW-복구.png"><br>
+
+- `REQUIRED_NEW`를 사용하게 되면 물리 트랜잭션 자체가 완전히 분리된다.
+- 그리고 `REQUIRED_NEW`는 신규 트랜잭션이므로 `rollbackOnly`표시가 되지 않는다. 그냥 해당 트랜잭션이 물리 롤백되고 끝난다.
+
+### REQUIRED_NEW - 자세히
+
+<img src="./imgs/REQUIRES_NEW-자세히.png"><br>
+
+- `LogRepository`에서 예외가 발생한다. 예외를 던지면 `LogRepository`의 트랜잭션 AOP가 해당 예외를 받는다.
+- `REQUIRED_NEW`를 사용한 신규 트랜잭션이므로 물리 트랜잭션을 롤백한다. 물리 트랜잭션을 롤백했으므로 `rollbackOnly`를 표시하지 않는다. 여기서 `REQUIRED_NEW`를 사용한 물리 트랜잭션은 롤백되고 완전히 끝이 나버린다.
+- 이후 트랜잭션 AOP는 전달 받은 예외를 밖으로 던진다.
+- 예외가 `MemberService`에 던져지고, `MemberService`는 해당 예외를 복구한다. 그리고 정상적으로 리턴한다.
+- 정상 흐름이 되었으므로 `MemberService`의 트랜잭션 AOP는 커밋을 호출한다.
+- 커밋을 호출할 때 신규 트랜잭션이므로 실제 물리 트랜잭션을 커밋해야 한다. 이때 `rollbackOnly`를 체크한다.
+- `rollbackOnly`가 없으므로 물리 트랜잭션을 커밋한다.
+- 이후 정항 흐름이 반환된다.
+- **결과적으로 회원 데이터는 저장되고, 로그 데이터만 롤백 되는 것을 확인할 수 있다.**
+
+### 정리
+
+- 논리 트랜잭션이 하나라도 롤백되면 관련된 물리 트랜잭션은 롤백되어 버린다.
+- 문제를 해결하려면 `REQUIRED_NEW`를 사용해서 트랜잭션을 분리해야 한다.
+- 참고로 예제를 단순화 하기 위ㅐㅎ `MemberService`가 `MemberRepository`, `LogRepository`만 호출하지만 실제로는 더 많은 리포지토리들을 호출하고 그 중에 `LogRepository`만 트랜잭션을 분리한다고 생각해보면 이해하는데 도움이 될 것이다.
+
+### 주의
+`REQUIRED_NEW`를 사용하면 하나의 HTTP 요청에 동시에 2개의 데이터베이스 커넥션을 사용하게 된다. 따라서 성능이 중요한 곳에서는 이런 부분을 주의해서 사용해야 한다.(con2를 사용하는 동안은 con1은 잠시 지연된다. DB입장에서는 커넥션 (con1, con2)이 둘 다 걸려있는 것이고, 애플리케이션 입장에서도 커넥션 풀에서 두개의 커넥션을 가져다 쓰고 있는 것이다.)
+
+`REQUIRED_NEW`를 사용하지 않고 문제를 해결할 수 있는 단순한 방법이 있다면, 그 방법을 선택하는 것이 더 좋다.<br>예를 들자면 다음과 같이 `REQUIRED_NEW`를 사용하지 않고 구조를 변경하는 것이다.
+
+<img src="./imgs/개선한버전.png"><br>
+
+MemberService에서 MemberRepository와 LogRepository를 둘 다 호출하지 않고, MemberService는 MemberRepository만 호출해서, 회원만 저장한다. 그리고 MemberFasade라는 것을 만들고, 거기서 MemberService와 LogRepository를 호출한다.(회원을 저장하는 트랜잭션과 로그를 저장하는 트랜잭션 자체를 애초에 별도로 분리해서 트랜잭션이 수행되는 중에 트랜잭션을 만들지 않도록 구조를 변경)
+
+이렇게 하면 HTTP요청에 동시에 2개의 커넥션을 사용하지는 않는다. 순차적으로 사용하고 반환하게 된다. 물론 구조상 `REQUIRED_NEW`를 사용하는 것이 더 깔끔한 경우도 있으므로 각각의 장단점을 이해하고 적절하게 선택해서 사용하면 된다.
