@@ -1,4 +1,4 @@
-package jpabasic.ex1hellojpa;
+package jpabasic.hellojpa.ex01;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -6,8 +6,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "MEMBER")
-public class Member {
+@Table(name = "MEMBER01")
+public class Member01 {
 
     @Id
     @Column(name = "ID")

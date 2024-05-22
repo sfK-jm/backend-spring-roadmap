@@ -1,5 +1,4 @@
-package jpabasic.ex1hellojpa;
-
+package jpabasic.hellojpa.ex01;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
@@ -8,7 +7,7 @@ import jakarta.persistence.Persistence;
 
 import java.util.List;
 
-public class JpaMain {
+public class JpaMain01 {
 
     public static void main(String[] args) {
 
@@ -34,7 +33,7 @@ public class JpaMain {
 
     public static void logic(EntityManager em) {
         String id = "id1";
-        Member member = new Member();
+        Member01 member = new Member01();
         member.setId(id);
         member.setUsername("unknown");
         member.setAge(2);
@@ -46,12 +45,12 @@ public class JpaMain {
         member.setAge(20);
 
         //한 건 조회
-        Member findMember = em.find(Member.class, id);
+        Member01 findMember = em.find(Member01.class, id);
         System.out.println("findMember = " + findMember.getUsername() + ", age=" + findMember.getAge());
 
         //목록 조회
-        List<Member> members = em.createQuery("select m from Member m", Member.class).getResultList();
-        for (Member m : members) {
+        List<Member01> members = em.createQuery("select m from Member01 m", Member01.class).getResultList();
+        for (Member01 m : members) {
             System.out.println("member.name = " + m.getUsername());
         }
     }

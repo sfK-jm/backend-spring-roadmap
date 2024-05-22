@@ -451,9 +451,10 @@ HttpServletRequest - 개요
         - form 파라미터 형식 조회
         - message body 데이터 직접 조회
   - HttpServletRequest 객체는 추가로 여러가지 부가기능도 함께 제공한다. - **임시 저장소 기능** - 해당 HTTP 요청이 시작부터 끝날 때 까지 유지되는 임시 저장소 - 저장: `request.setAttribute(name, value)` - 조회: `request.getAttribute(name)` - 세션 관리 기능 - `request.getSession(create: true)`
-    > [!IMPORTANT]
-    >
-    > HttpServletRequest, HttpServletResponse를 사용할 때 **가장 중요한 점은 이 객체들이 HTTP 요청 메시지, HTTP 응답 메시지를 편리하게 사용하도록 도와주는 객체**라는 점이다. 따라서 이 기능에 대해서 깊이있는 이해를 하려면 HTTP 스펙이 제공하는 요청, 응답메시지 자체를 이해햐야 한다.
+
+> [!IMPORTANT]
+>
+> HttpServletRequest, HttpServletResponse를 사용할 때 **가장 중요한 점은 이 객체들이 HTTP 요청 메시지, HTTP 응답 메시지를 편리하게 사용하도록 도와주는 객체**라는 점이다. 따라서 이 기능에 대해서 깊이있는 이해를 하려면 HTTP 스펙이 제공하는 요청, 응답메시지 자체를 이해햐야 한다.
 
 ### HttpServletRequest - 기본 사용법
 
@@ -602,7 +603,7 @@ HttpServletRequest가 제공하는 기본 기능들을 알아보자.
 
 이렇게 전달된 데이터를 서버에서는 HttpServletRequest가 제공하는 다음 메서드를 통해 쿼리 파라미터를 편리하게 조회할 수 있다.
 
-**쿼리 파라밈터 조회 메서드**
+**쿼리 파라미터 조회 메서드**
 
 - 단일 파라미터 조회
   - `String username = request.getParameter("username");`
@@ -699,7 +700,7 @@ HttpServletRequest가 제공하는 기본 기능들을 알아보자.
 
 > [!NOTE]
 >
-> - POSt의 HTML Form을 전송하면 웹 브라우저는 다음 형식으로 HTTP 메시지를 만든다
+> - POST의 HTML Form을 전송하면 웹 브라우저는 다음 형식으로 HTTP 메시지를 만든다
 >   - 요청 URL: `http://localhost:8080/request-param`
 >   - content-type: `application/x-www-form-urlencoded`
 >   - message body: `username=hello&age=20`
@@ -709,7 +710,7 @@ HttpServletRequest가 제공하는 기본 기능들을 알아보자.
 >
 > - **content-type은 HTTP메시지 바디의 데이터 형식으로 지정한다**
 > - **GET URL 쿼리 파라미터 형식**으로 클라이언트에서 서버로 데이터를 전달할 때는 HTTP 메시지 바디를 사용하지 않기 때문에 **content-type**이 없다.
-> - **POST HTML Form 형식**으로 데이터 전달하면 HTTP 메시지 바디에 해당 데이터를 포함해서 보내기 때문에 바디에 포함된 데이터가 어떤 형식인지 content-type을 꼭 지정해야 한다. 이렇게 폼으로 데이터를 전송하는 형식을 application/x-www.form-urlencoded라 한다.
+> - **POST HTML Form 형식**으로 데이터 전달하면 HTTP 메시지 바디에 해당 데이터를 포함해서 보내기 때문에 바디에 포함된 데이터가 어떤 형식인지 content-type을 꼭 지정해야 한다. 이렇게 폼으로 데이터를 전송하는 형식을 `application/x-www-form-urlencoded`라 한다.
 
 postman 테스트
 
