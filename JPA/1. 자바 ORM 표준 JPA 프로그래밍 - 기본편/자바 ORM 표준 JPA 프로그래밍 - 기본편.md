@@ -599,6 +599,293 @@ em.setFlushMode(FlushModeType.COMMIT)
 
 ## 필드와 컬럼 매핑
 
+### 요구 사항 추가
+
+- 회원은 일반 회원과 괸라자로 구분해야 한다.
+- 회원 가입일과 수정일이 있어야 하낟.
+- 회원을 설명할 수 있는 필드가 있어야 한다. 이 필드는 길이 제한이 없다.
+
+```java
+public enum RoleType {
+    ADMIN, USER
+}
+```
+
+```java
+@Entity
+@Table(name = "MEMBER04", uniqueConstraints = {@UniqueConstraint(
+        name = "NAME_AGE_UNIQUE",
+        columnNames = {"NAME", "AGE"})})
+public class Member04 {
+
+    @Id
+    @Column(name = "ID")
+    private String id;
+
+    @Column(name = "NAME", nullable = false, length = 10)
+    private String username;
+
+    private Integer age;
+
+    @Enumerated(EnumType.STRING)
+    private RoleType roleType;
+
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date createdDate;
+
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date lastModifiedDate;
+
+    @Lob
+    private String description;
+
+    @Transient
+    private String temp;
+
+    //Getter, Setter
+```
+
+```java
+public class JpaMain {
+
+    public static void main(String[] args) {
+
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("jpabook");
+        EntityManager em = emf.createEntityManager();
+        EntityTransaction tx = em.getTransaction();
+
+        try {
+            tx.begin();
+            Member04 member = new Member04();
+            member.setId(1L);
+            member.setUsername("A");
+            member.setAge(10);
+            member.setRoleType(RoleType.ADMIN);
+
+            System.out.println("memberID = " + member.getId());
+            em.persist(member);
+
+            tx.commit();
+        } catch (Exception e) {
+            tx.rollback();
+            System.out.println("e = " + e);
+            System.out.println("====롤백 수행==");
+        } finally {
+            em.close();
+        }
+        emf.close();
+    }
+}
+```
+
+### 매핑 어노테이션 정리
+
+`hibernate.hdm2ddl.auto`
+
+|어노테이션|설명|
+|:----|:---|
+|@Column|컬럼 매핑|
+|@Temporal|날짜 타입 매핑|
+|@Enumerated|enum 타입 매핑|
+|@Lob|BLOG, CLOG 매핑|
+|@Transient|특정 필드를 컬럼에 매핑하지 않음(매핑 무시)|
+
+#### @Column
+
+|속성|설명|기본값|
+|:--|:--|:--|
+|name|필드와 매핑할 테이블의 컬럼 이름|객체의 필드 이름|
+|insertable,<br>updateable|등록, 변경 가능 여부|TRUE|
+|nullable(DDL)|null 값의 허용 여부를 설정한다. false로 설정하면 DDL생성시에 not null제약조건이 붙는다.||
+|unique(DDL)|@Table의 uniqueConstraints와 같지만 한 컬럼에 간단히 유니크 제약조건을 걸 때 사용한다.||
+|columnDefinition(DDL)|데이터베이스 컬럼 정보를 직접 줄 수 있다.<br>ex) varchar(100) default 'EMPTY'|필드의 자바 타입과 방언 정보를 사용함|
+|length(DDL)|문자 길이 제약조건, String 타입에만 사용한다.|255|
+|percision scale(DDL)|BigDecimal 타입에서 사용한다.(BigInteger도 사용할 수 있다.)<br>precision은 소수점을 포함한 전체 자리수를, scale은 소수의 자릿수다.<br> 참고로 double, float타입에는 적용되지 않는다. 아주 큰 숫자나 정밀한 소수를 다루어야 할 때만 사용한다.|percision=19,<br>scale=2|
+
+#### @Enumerated
+
+자바 enum 타입을 매핑할 때 사용
+
+> [!CAUTION]
+> ORDINAL 사용X
+
+|속성|설명|기본값|
+|:-----|:----|:-----|
+|value|- EnumType.ORIDINAL: enum순서를 데이터베이스에 저장<br>- EnumType.STRING: enum 이름을 데이터베이스에 저장|EnumType.ORDINAL|
+
+#### @Temporal
+
+날짜 타입(java.util.Data, java.util.Calendar)을 매핑할 때 사용
+
+참고: LocalDate, LocalDateTime을 사용할 때는 생략 가능(최신 하이버네이트 지원)
+
+|속성|설명|기본값|
+|:-----|:----|:-----|
+|value|- **TemporalType.DATE**: 날짜, 데이터베이스 date타입과 매핑(2013-10-11)<br>- **TemporalType.TIME**: 시간, 데이터베이스 time타입과 매핑(11:11:11)<br>- **TemporalType.**: 날짜와 시작, 데이터베이스 timestamp 타입과 매핑(2013-10-11 11:11:11)||
+
+#### @Lob
+
+데이터베이스 BLOB, CLOB 타입이 매핑
+
+- @Lob에는 지정할 수 있는 속성이 없다.
+- 매핑하는 필드 타입이 문자면 CLOB매핑, 나머지는 BLOB 매핑
+  - CLOB: String, char[], java.sql.CLOB
+  - BLOB: byte[], java.sql. BLOB
+
+#### @Transient
+
+- 필드 매핑 X
+- 데이터베이스에 저장X, 조회X
+- 주로 메모리상에만 임시로 어떤 값을 보관하고 싶을 때 사용
+
 ## 기본 키 매핑
 
+### 기본 키 매핑 어노테이션
+
+- @Id
+- @GeneratedValue
+
+```java
+@Id
+@GeneratedValue(strategy = GenerationType.AUTO)
+private Long id;
+```
+
+### 기본 키 매핑 방법
+
+- 직접 할당: **@Id**만 사용
+- 자동 생성(**@GeneratedValue**)
+  - **IDENTITY**: 데이터베이스에 위임, MYSQL
+  - **SEQUENCE**: 데이터베이스 시퀀스 오브젝트 사용, ORACLE
+    - @SequenceGenerator 필요
+  - **TABLE**: 키 생성용 테이블 사용, 모든 DB에서 사용
+    - @TableGenerator 필요
+  - **AUTO**: 방언에 따라 자동 지정, 기본값
+
+#### IDENTITY 전략
+
+- 기본 키 생성을 데이터베이스에 위임
+- 주로 MYSQL, PostgreSQL, SQL Server, DB2에서 사용<br>(예: MYSQL의 AUTO_INCREMENT)
+- JPA는 보통 트랜잭션 커밋 시점에 INSERT SQL 실행
+- AUTO)INCREMENT는 데이터베이스에 INSERT_SQL을 실행한 후에 ID 값을 알 수 있음
+- IDENTITY전략은 em.persit()시점에 즉시 INSERT SQL 실행하고 DB에서 식별자를 조회
+
+```java
+@Entity
+public class Member {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+}
+```
+
+#### SEQUENCE 전략
+
+- 데이터베이스 시퀀스는 유일한 값을 순서대로 생성하는 특별한 데이터베이스 오브젝트 (ex: 오라클 시퀀스)
+- 오라클, PostgreSQL, DB2, H2데이터베이스에서 사용
+
+```java
+@Entity
+@SequenceGenerator(
+    name = "MEMBER_SEQ_GENERATOR",
+    sequenceName = "MEMBER_SEQ", //매핑할 데이터베이스 시퀀스 이름
+    initalValue = 1, allocationsize = 1)
+public class Member {
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE,
+            generator = "MEMBER_SEQ_GENERATOR")
+    private Long id;
+}
+```
+
+| 속성            | 설명                                                                                                                                                    | 기본값 |
+| :-------------- | :-------------------------------------------------------------------------------------------------------------------------------------- | :----------------- |
+| name            | 식별자 생성기 이름                                                                                                                          | 필수                 |
+| sequenceName    | 데이터베이스에 등록되어 있는 시퀀스 이름                                                                                                          | hibernate_sequence |
+| initialValue    | DDL생성시에만 사용됨, 시퀀스 DDL을 생성할 때 처음 1 시작하는 수를 지정한다.                                                                             | 1                  |
+| allocationSize  | 시퀀스를 한 번 호출에 증가하는 수(성능 최적화에 사용됨)<br>데이터베이스 시붠스 값이 하나씩 증가하도록 설정되어 있으면 이 값을 반드시 1로 설정해야 한다. | **50**             |
+| catalog, schema | 데이터베이스 catalog, schema 이름 |                    |
+
+#### TABLE 전략
+
+- 키 생성 전용 테이블을 하나 만들어서 데이터베이스 시퀀스를 흉내내는 전략
+- 장점: 모든 데이터베이스에 적용 가능
+- 단점: 성능
+
+```sql
+create table MY_SEQUENCES (
+    sequence_name varchar(255) not null
+    next_val bigint,
+    primary key ( sequence_name )
+)
+```
+
+```java
+@Entity
+@TableGenerator(
+    name = "MEMBER_SEQ_GENERATOR",
+    table = "MY_SEQUENCES",
+    pkColumnValue = "MEMber_SEQ", allocationSize = 1)
+public class Member {
+    @Id
+    @GeneratedValue(strategy = GenerationType.TABLE,
+                    generator = "MEMBER_SEQ_GENERATOR")
+    private Long id;
+}
+```
+
+### 권장하는 식별자 전략
+
+- **기본 키 제약 조건**: null아님, 유일, **변하면 안된다**
+- 미래까지 이 조건을 만족하는 자연키는 찾기 어렵다. 대리키(대체키)를 사용하자.
+- 예를 들어 주민등록번호도 기본 키로 적절하지 않다.
+- **권장: Long형 + 대체키 + 키 생성전략 사용**
+
 ## 실전 예제 - 1. 요구사항 분석과 기본 매핑
+
+### 요구사항 분석
+
+- 회원은 상품을 주문할 수 있다.
+- 주문 시 여러 종료의 상품을 선택할 수 있다.
+
+### 기능 목록
+
+- 회원 기능
+  - 회원 등록
+  - 회원 조회
+- 상품 기능
+  - 상품 등록
+  - 상품 수정
+  - 상품 조회
+- 주문 기능
+  - 상품 주문
+  - 주문 내역 조회
+  - 주문 취소
+
+<img src="./imgs/엔티티_매핑/실전예제_화면.png"><br>
+
+### 도메인 모델 분석
+
+- 회원과 주문의 관계: 회우너은 여러 번 주문할 수 있다. (일대다)
+- 주문과 상품의 관계: 주문할 때 여러 상품을 선택할 수 있다. 반대로 같은 삼품도 여러 번 주문될 수 있다. 주문상품이라는 모델을 만들어서 다대다 관계를 일대다, 다대일 관계로 풀어냄
+
+<img src="./imgs/엔티티_매핑/도메인_분석.png"><br>
+
+### 테이블 설계
+
+<img src="./imgs/엔티티_매핑/테이블_설계.png"><br>
+
+### 엔티티 설계와 매핑
+
+<img src="./imgs/엔티티_매핑/엔티티_설계와_매핑.png"><br>
+
+### 소스 코드
+
+[소스코드 링크](./소스코드/jpa-basic/src/main/java/jpabasic/hellojpa/ex04/jpashop/)
+
+### 데이터 중심 설계의 문제점
+
+- 현재 방식은 객체 설계를 테이블 설계에 맞춘 방식
+- 테이블의 외래키를 객체애 그대로 가져옴
+- 객체 테이블 탐색이 불가능
+- 참조가 없으므로 UML도 잘못됨
