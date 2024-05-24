@@ -879,10 +879,6 @@ public class Member {
 
 <img src="./imgs/엔티티_매핑/엔티티_설계와_매핑.png"><br>
 
-### 소스 코드
-
-[소스코드 링크](./소스코드/jpa-basic/src/main/java/jpabasic/hellojpa/ex04/jpashop/)
-
 ### 데이터 중심 설계의 문제점
 
 - 현재 방식은 객체 설계를 테이블 설계에 맞춘 방식
@@ -1026,14 +1022,14 @@ public class Team {
     private String name;
 
     @OneToMany(mappedBy = "team")
-    List<Member05> members = new ArrayList<>();
+    private List<Member05> members = new ArrayList<>();
 
     ...
 }
 ```
 
 ```java
-Team05 team = new Team05();
+Team team = new Team();
 team.setName("TeamA");
 em.persist(team);
 
@@ -1047,7 +1043,7 @@ em.flush();
 em.clear();
 
 //조회
-Team05 findTeam = em.find(Team05.class, team.getId());
+Team findTeam = em.find(Team.class, team.getId());
 
 int memberSize = findTeam.getMembers().size();
 System.out.println("memberSize = " + memberSize);
@@ -1178,3 +1174,64 @@ em.persist(member);
 
 - 비즈니스 로직을 기준으로 연관관계의 주인을 선택하면 안됨
 - **연관관계의 주인은 외래 키의 위치를 기준으로 정해야함**
+
+## 실전예제2 - 연관관계 매핑 시작
+
+## 테이블 구조
+
+테이블 구조는 이전과 같다. 
+
+<img src="./imgs/엔티티_매핑/테이블_설계.png"><br>
+
+## 객체 구조
+
+<img src="./imgs/연관관계_매핑_기초/객체_구조.png"><br>
+
+# 다양한 연관관계 매핑
+
+## 연관관계 매핑시 고려사항 3가지
+
+- 다중성
+- 단방향, 양방향
+- 연관관계 주인
+
+### 다중성
+
+- 다대일: @ManyToOne
+- 일대다: @OneToMany
+- 일대일: @OneToOne
+- 다대다: @ManyToMany
+
+### 단방향, 양방향
+
+- **테이블**
+  - 외래 키 하나로 양쪽 조인 가능
+  - 사실 방향이라는 개념이 없음
+- **객체**
+  - 참조용 필드가 있는 쪽으로만 참조 가능
+  - 한쪽만 참조하면 단방향
+  - 양쪽이 서로 참조하면 양방향
+
+### 연관관계 주인
+
+- 테이블은 **외래 키 하나**로 두 테이블이 연관관계를 맺음
+- 객체 양방향 관계는 A->B, B->A처럼 **참조가 2군데**
+- 객체 양방향 관계는 참조가 2군데 있음, 둘 중 테이블의 외래 키를 관리할 곳을 지정해야 함
+- 연관관계의 주인: 외래 키를 관리하는 참조
+- 주인의 반대편: 외래 키에 영향을 주지 않음, 단순 조회만 가능
+
+## 다대일 [N:1]
+
+### 다대일 단방향
+
+<img src="./imgs/다양한_연관관계_매핑/다대일_단방향.png"><br>
+
+- 가장 많이 사용하는 연관관계
+- **다대일**의 반대는 **일대다**
+
+### 다대일 양방향
+
+<img src="./imgs/다양한_연관관계_매핑/다대일_양방향.png"><br>
+
+- 외래 키가 있는 쪽이 연관관계 주인
+- 양쪽을 서로 참조하도록 개발

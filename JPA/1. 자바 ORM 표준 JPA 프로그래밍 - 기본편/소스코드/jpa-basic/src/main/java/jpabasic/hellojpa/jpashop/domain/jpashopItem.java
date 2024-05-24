@@ -1,4 +1,4 @@
-package jpabasic.hellojpa.ex04.jpashop.domain;
+package jpabasic.hellojpa.jpashop.domain;
 
 import jakarta.persistence.*;
 

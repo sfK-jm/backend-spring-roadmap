@@ -1,6 +1,9 @@
-package jpabasic.hellojpa.ex04.jpashop.domain;
+package jpabasic.hellojpa.jpashop.domain;
 
 import jakarta.persistence.*;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "JPASHOP_MEMBER")
@@ -13,6 +16,9 @@ public class jpashopMember {
     private String city;
     private String street;
     private String zipcode;
+
+    @OneToMany(mappedBy = "member")
+    private List<jpashopOrder> orders = new ArrayList<>();
 
     public Long getId() {
         return id;
