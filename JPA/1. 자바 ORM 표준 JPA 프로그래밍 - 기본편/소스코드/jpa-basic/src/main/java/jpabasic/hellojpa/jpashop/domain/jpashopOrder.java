@@ -19,6 +19,10 @@ public class jpashopOrder {
     @JoinColumn(name = "MEMBER_ID")
     private jpashopMember member;
 
+    @OneToOne
+    @JoinColumn(name = "DELIVERY_ID")
+    private jpashopDelivery delivery;
+
     @OneToMany(mappedBy = "order")
     private List<jpashopOrderItem> orderItems = new ArrayList<>();
 

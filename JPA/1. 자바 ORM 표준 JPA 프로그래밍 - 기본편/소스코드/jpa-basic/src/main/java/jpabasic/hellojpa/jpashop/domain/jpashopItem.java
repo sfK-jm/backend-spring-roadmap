@@ -2,6 +2,9 @@ package jpabasic.hellojpa.jpashop.domain;
 
 import jakarta.persistence.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Table(name = "JPASHOP_ITEM")
 public class jpashopItem {
@@ -14,6 +17,9 @@ public class jpashopItem {
     private String name;
     private int price;
     private int stockQuantity;
+
+    @ManyToMany(mappedBy = "items")
+    private List<jpashopCategory> categories = new ArrayList<>();
 
     public Long getId() {
         return id;

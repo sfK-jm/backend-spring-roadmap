@@ -20,8 +20,6 @@ public class jpashopMain {
 
         try {
 
-
-
             tx.commit();
         } catch (Exception e) {
             System.out.println("=== 롤백 수행 ===");
