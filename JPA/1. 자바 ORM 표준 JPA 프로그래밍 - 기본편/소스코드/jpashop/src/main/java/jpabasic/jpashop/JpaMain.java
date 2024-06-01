@@ -1,10 +1,9 @@
 package jpabasic.jpashop;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityManagerFactory;
-import jakarta.persistence.EntityTransaction;
-import jakarta.persistence.Persistence;
+import jakarta.persistence.*;
 import jpabasic.jpashop.domain.Member;
+
+import java.util.List;
 
 public class JpaMain {
 
@@ -20,8 +19,22 @@ public class JpaMain {
             tx.begin(); //트랜잭션 시작
 
             Member member = new Member();
+            member.setAge(23);
 
             em.persist(member);
+
+            em.flush();
+            em.clear();
+
+            //검색
+            String jpql = "select m from Member m where m.age > 18";
+
+            List<Member> result = em.createQuery(jpql, Member.class)
+                    .getResultList();
+
+            for (Member m : result) {
+                System.out.println("m = " + m);
+            }
 
             tx.commit(); //트랜잭션 커밋
         } catch (Exception e) {
