@@ -2162,3 +2162,48 @@ query.setParameter(1, usernameParam);
    - 단순 값을 DTO로 바로 조회<br>SELECT **new** jpabook.jpql.UserDTO(m.username, m.age) FROM Member m
    - 패키지 명을 포함한 전체 클래스 명 입력
    - 순서와 타입이 일치하는 생성자 필요
+
+## 페이징
+
+### 페이징 API 예시
+
+```java
+String jpql = "select m from Member m order by m.age desc";
+List<Member> resultList = em.createQuery(jpql, Member.class)
+                    .setFirstResult(0)
+                    .setMaxResults(10)
+                    .getResultList();
+```
+
+### 페이징 API - MySQL 방언
+
+```sql
+SELECT 
+  M.ID AS ID,
+  M.AGE AS AGE,
+  M.TEAM_ID AS TEAM_ID,
+  M.NAME AS NAME
+FROM
+  MEMBER M
+GROUP BY
+  M.NAME DESC LIMIT ?, ?
+```
+
+### 페이징 API - Oracle 방언
+
+```sql
+SEECT * FROM
+  ( SELECT FOW_.*, ROWNUM ROWNUM_
+  FROM
+    ( SELECT
+        M.ID AS ID,
+        M.AGE AS AGE,
+        M.TEAM_ID AS TEAM_ID,
+        M.NAME AS NAME
+    FROM MEMBER M
+    ORDER BY M.NAME
+    ) ROW_
+  WHERE ROWNUM <= ?
+  )
+WHERE ROWNUM_ > ?
+```
