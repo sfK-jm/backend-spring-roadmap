@@ -21,22 +21,32 @@ public class JpaMain {
             em.persist(team);
 
             Member member = new Member();
-            member.setUsername("teamA");
+            member.setUsername("memberA");
             member.setAge(10);
 
+            Member member1 = new Member();
+            member.setUsername("memberB");
+            em.persist(member1);
+
             member.setTeam(team);
+            team.getMembers().add(member);
 
             em.persist(member);
 
             em.flush();
             em.clear();
 
-            String query = "select m from Member m , Team  t where m.username = t.name";
+            System.out.println("team.getMembers() = " + team.getMembers());
+            for (Member m : team.getMembers()) {
+                System.out.println("m = " + m);
+            }
+
+            String query = "SELECT m FROM Member m JOIN m.team t";
             List<Member> result = em.createQuery(query, Member.class)
                     .getResultList();
 
-            System.out.println("result.size() = " + result.size());
 
+            System.out.println("result.size() = " + result.size());
             tx.commit();
         } catch (Exception e) {
             tx.rollback();
