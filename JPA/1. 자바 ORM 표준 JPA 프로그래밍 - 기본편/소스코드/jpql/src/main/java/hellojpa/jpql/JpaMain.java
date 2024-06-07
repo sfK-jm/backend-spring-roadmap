@@ -2,6 +2,7 @@ package hellojpa.jpql;
 
 import jakarta.persistence.*;
 
+import java.util.Collection;
 import java.util.List;
 
 public class JpaMain {
@@ -15,24 +16,32 @@ public class JpaMain {
         tx.begin();
 
         try {
-
-            Member member = new Member();
-            member.setUsername("memberA");
-            member.setAge(10);
-
             Member member1 = new Member();
-            member1.setUsername("memberB");
+            member1.setUsername("관리자1");
 
-            em.persist(member);
+            Member member2 = new Member();
+            member2.setUsername("관리자2");
+
+            Team team1 = new Team();
+            team1.setName("TeamA");
+
             em.persist(member1);
+            em.persist(member2);
+            em.persist(team1);
 
-            String query =
-                    "select function('group_concat', m.username) from Member m";
-            List<String> resultList = em.createQuery(query, String.class).getResultList();
+            member1.setTeam(team1);
+            member2.setTeam(team1);
+
+            em.flush();
+            em.clear();
+
+            List<String> resultList = em.createQuery("select m.username from Team t join t.members m", String.class)
+                    .getResultList();
 
             for (String s : resultList) {
                 System.out.println("s = " + s);
             }
+
 
             tx.commit();
         } catch (Exception e) {
