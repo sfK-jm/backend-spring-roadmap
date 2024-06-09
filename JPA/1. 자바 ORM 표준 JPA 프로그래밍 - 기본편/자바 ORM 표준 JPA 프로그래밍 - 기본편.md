@@ -2446,7 +2446,7 @@ select m.username -- 상태 필드
 - 조인은 SQL 튜닝에 중요 포인트
 - 묵시적 조인은 조인이 일어나는 상황을 한눈에 파악하기 어려움
 
-## JPQL - 페치 조인(fetch join) - 기본
+## JPQL 페치 조인(fetch join) - 기본
 
 **실무에서 정말정말 중요함**
 
@@ -2587,3 +2587,13 @@ SELECT T.*, M.*
 FROM TEAM T
 INNER JOIN MEMBER M ON T.ID=M.TEAM_ID
 WHERE T.NAME = '팀A'
+```
+
+## JPQL 페치 조인(fetch join) - 한계
+
+- **페치 조인 대상에는 별칭을 줄 수 없다**
+  - 하이버네이트는 가능, 가급적 사용x
+- **둘 이상의 컬렉션은 페치 조인 할 수 없다.**
+- **컬렉션을 페치 조인하면 페이징 API(setFirstResult, setMaxResults)를 사용할 수 없다.**
+  - 일대일, 다대일 같은 단일 값 연관 필드들은 페치 조인해도 페이징 가능
+  - 하이버네이트는 경고 로그를 남기고 메모리에서 페이징(매우 위험)
