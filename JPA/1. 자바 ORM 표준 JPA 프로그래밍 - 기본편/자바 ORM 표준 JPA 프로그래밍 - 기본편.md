@@ -2608,3 +2608,29 @@ WHERE T.NAME = '팀A'
 - 모든 것을 페치 조인으로 해결할 수는 없음
 - 페치 조인은 객체 그래프를 유지할 때 사용하면 효과적
 - 여러 테이블을 조인해서 엔티티가 가진 모양이 아닌 전혀 다른 결과를 내야 하면, 페치 조인보다는 일반 조인을 사용하고 필요한 데이터들만 조회해서 DTO로 반환하는 것이 효과적
+
+## JPQL - 다형성 쿼리
+
+<img src="./imgs/객체지향_쿼리_언어/다형성_쿼리.png"><br>
+
+### TYPE
+
+- 조회 대상을 특정 자식으로 한정
+- 예) item중에 Book, Movie를 조회해라
+
+**[JPQL]**<br>
+select i from i<br>where **type(i) IN (Book, Movie)
+
+**[SQL]**<br>
+select i from i<br>where i.DTYPE in ('B', 'M')
+
+### TREAT(JPA 2.1)
+
+- 자바의 타입 캐스팅과 유사
+- 상속 구조에서 부모 타입을 특정 자식 타입으로 다룰 때 사용
+- FROM, WHERE, SELECT(하이버네이트 지원)사용
+- 예) 부모인 Iteam과 자식 Book이 있다.
+
+**[JPQL]**<br>select i from Item i<br>where treat(i as Book).author = 'kim'
+
+**[SQL]**<br>select i.* from Item i<br>where i.DTYPE = 'B' and i.author = 'kim'
