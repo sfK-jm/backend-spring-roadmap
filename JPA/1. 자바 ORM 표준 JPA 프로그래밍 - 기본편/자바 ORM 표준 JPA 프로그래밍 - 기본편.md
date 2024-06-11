@@ -4,7 +4,6 @@
 
 앞으로 H2데이터베이스와 메이븐을 사용해서 개발 할 것이다.
 
-
 ### 라이브러리 추가 (pom.xml)
 
 ```xml
@@ -2619,7 +2618,7 @@ WHERE T.NAME = '팀A'
 - 예) item중에 Book, Movie를 조회해라
 
 **[JPQL]**<br>
-select i from i<br>where **type(i) IN (Book, Movie)
+select i from i<br>where **type(i)** IN (Book, Movie)
 
 **[SQL]**<br>
 select i from i<br>where i.DTYPE in ('B', 'M')
@@ -2633,4 +2632,59 @@ select i from i<br>where i.DTYPE in ('B', 'M')
 
 **[JPQL]**<br>select i from Item i<br>where treat(i as Book).author = 'kim'
 
-**[SQL]**<br>select i.* from Item i<br>where i.DTYPE = 'B' and i.author = 'kim'
+**[SQL]**<br>select i.\* from Item i<br>where i.DTYPE = 'B' and i.author = 'kim'
+
+## JPQL - 엔티티 직접 사용
+
+### 엔티티 직접 사용 - 기본 키 값
+
+- JPQL에서 엔티티를 직접 사용하면 SQL에서 해당 엔티티의 기본 키 값을 사용
+
+**[JPQL]**<br>select **count(m.id)** from Member m //엔티티의 아이디를 사용<br>select **count(m)** from Member m //엔티티를 직접 사용
+
+**[SQL]**(JPQL 둘 다 같은 다음의 SQL 실행)<br>
+select count(m.id) as cnt from Member m
+
+엔티티를 파라미터로 전달<br>
+```java
+String jpql = "select m from Member m where m = :member";
+List resultList = em.createQuery(jpql)
+                    .setParameter("member", member)
+                    .getResultList();
+```
+
+식별자를 직접 전달<br>
+```java
+String jpql = "select m from Member m where m.id = :memberId";
+List resultList = em.createQuery(jpql)
+                    .setParameter("memberId", memberId)
+                    .getResultList();
+```
+
+실행된 SQL<br>
+```sql
+select m.* from Member m where **m.id=?**
+```
+
+### 엔티티 직접 사용 - 외래 키 값
+
+```java
+Team team = em.find(Team.class, 1L);
+
+String qlString = "select m from Member m where m.team = :team";
+List resultList = em.createQuery(qlString)
+                    .setParameter("team", team)
+                    .getResultList();
+```
+
+```java
+String qlString = "select m from Member m where m.team.id = :teamId";
+List resultList = em.createQuery(qlString)
+                    .setParameter("teamId", teamId)
+                    .getResultList();
+```
+
+실행된 SQL<br>
+```sql
+select m.* from Member m where m.team_id=?
+```
