@@ -44,30 +44,12 @@ public class JpaMain {
             em.flush();
             em.clear();
 
-            String jpql = "select m from Member m join fetch m.team";
-            List<Member> members = em.createQuery(jpql, Member.class)
+            List<Member> resultList = em.createNamedQuery("Member.findByUsername", Member.class)
+                    .setParameter("username", "회원1")
                     .getResultList();
 
-            for (Member member : members) {
-                //페치 조인으로 회원과 팀을 함께 조회해서 지연로딩 X
-                System.out.println("username = " + member.getUsername() + ", " +
-                        "teamName = " + member.getTeam().getName());
-            }
-
-            em.flush();
-            em.clear();
-
-            System.out.println("========================================");
-
-            String query = "select t from Team t join fetch t.members where t.name = '팀1'";
-            List<Team> teams = em.createQuery(query, Team.class).getResultList();
-
-            for (Team team : teams) {
-                System.out.println("teamname = " + team.getName() + ", team = " + team);
-                for (Member member : team.getMembers()) {
-                    //페치 조인으로 팀과 회원을 함께 조회해서 지연로딩 발생 안함
-                    System.out.println("-> username = " + member.getUsername() + ", member = " + member);
-                }
+            for (Member member : resultList) {
+                System.out.println("member = " + member);
             }
 
             tx.commit();
