@@ -1191,7 +1191,89 @@ public class NotEnoughStockException extends RuntimeException {
 
 ## 상품 리포지토리 개발
 
+**상품 리포지토리 코드**
+
+```java
+package jpabook.jpashop.repository;
+
+import jakarta.persistence.EntityManager;
+import jpabook.jpashop.domain.Item;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+@RequiredArgsConstructor
+public class ItemRepository {
+
+    private final EntityManager em;
+
+    public void save(Item item) {
+        if (item.getId() == null) {
+            em.persist(item);
+        } else {
+            em.merge(item);
+        }
+    }
+
+    public Item findOne(Long id) {
+        return em.find(Item.class, id);
+    }
+
+    public List<Item> findAll() {
+        return em.createQuery("select i from Item i", Item.class)
+                .getResultList();
+    }
+}
+```
+
+**기능 설명**
+
+- `save()`
+  - `id`가 없으면 신규로 보고 `persist()`실행
+  - `id`가 있으면 이미 데이터베이스에 저장된 엔티티를 수정한다고 보고, `merge()`를 실행, 자세한 내용은 뒤에 웹에서 설명(지금은 그냥 저장한다 정도로 생각하자)
+
 ## 상품 서비스 개발
+
+```java
+package jpabook.jpashop.service;
+
+import jpabook.jpashop.domain.Item;
+import jpabook.jpashop.repository.ItemRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+@Service
+@Transactional(readOnly = true)
+@RequiredArgsConstructor
+public class ItemService {
+
+    private final ItemRepository itemRepository;
+
+    @Transactional
+    public void saveItem(Item item) {
+        itemRepository.save(item);
+    }
+
+    public List<Item> findItems() {
+        return itemRepository.findAll();
+    }
+
+    public Item findOne(Long itemId) {
+        return itemRepository.findOne(itemId);
+    }
+}
+```
+
+상품 서비스는 상품 리포지토리에 단순히 위임한 하는 클래스
+
+**상품 기능 테스트**
+
+상품 기능 테스트는 회원 테스트와 비슷하므로 생략
 
 # 주문 도메인 개발
 
