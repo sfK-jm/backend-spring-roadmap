@@ -22,6 +22,7 @@ public class MemberService {
      * @param member 회원가입 할 member
      * @return 가입한 member의 Id
      */
+    @Transactional
     public Long join(Member member) {
         validationDuplicateMember(member); //중복 회원 검증
 
