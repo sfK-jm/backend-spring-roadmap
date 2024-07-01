@@ -1,6 +1,7 @@
 package jpabook.jpashop.repository;
 
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.TypedQuery;
 import jakarta.persistence.criteria.*;
 import jpabook.jpashop.domain.Order;
@@ -16,6 +17,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class OrderRepository {
 
+    @PersistenceContext
     private final EntityManager em;
 
     public void save(Order order) {
@@ -24,6 +26,10 @@ public class OrderRepository {
 
     public Order findOne(Long id) {
         return em.find(Order.class, id);
+    }
+
+    public List<Order> findAll(OrderSearch orderSearch) {
+        return em.createQuery("select o from Order  o", Order.class).getResultList();
     }
 
     public List<Order> findAllByString(OrderSearch orderSearch) {
