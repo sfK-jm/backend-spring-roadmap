@@ -921,10 +921,10 @@ JSON 형식 파싱 추가<br>
   }
   ```
 
-  > [!TIP]
-  >
-  > - HTTP응답으로 HTML을 반환할 때는 content-type을 text/html로 지정해야 한다
-  > - 서블릿으로 HTML을 렌더링할때는 위와 같이 직접작성해야한다. (자바 코드로 작성하기 때문에 로직을 넣으면 동적으로 HTML 생성이 가능하다. (IF문도 넣을 수 있는 등)))
+> [!TIP]
+>
+> - HTTP응답으로 HTML을 반환할 때는 content-type을 text/html로 지정해야 한다
+> - 서블릿으로 HTML을 렌더링할때는 위와 같이 직접작성해야한다. (자바 코드로 작성하기 때문에 로직을 넣으면 동적으로 HTML 생성이 가능하다. (IF문도 넣을 수 있는 등)))
 
 ### HTTP 응답 데이터 - API JSON
 
@@ -1402,6 +1402,8 @@ implementation 'javax.servlet:jstl'
 
 - 특히 JSP 같은 뷰 템플릿은 화면을 렌더링 하는데 최적화 되어 있기 때문에 이 부분의 업무만 담당하는 것이 가장 효과적이다.
 
+<br>
+
 **Model View Controller**
 MVC 패턴은 지금까지 학습한 것 처럼 하나의 서블릿이나, JSP로 처리하던 것을 컨트롤러(Controller)와 뷰(View)라는 영역으로 서로 역할을 나눈 것을 말한다. 웹 애플리케이션은 보통 이 MVC 패턴을 사용한다.
 
@@ -1413,12 +1415,12 @@ MVC 패턴은 지금까지 학습한 것 처럼 하나의 서블릿이나, JSP�
 
 - 컨트롤러에 비즈니스 로직을 둘 수도 있지만, 이렇게 되면 컨트롤러가 너무 많은 역할을 담당한다. 그래서 일반적으로 비즈니스 로직은 서비스(Service)라는 계층을 별도로 만들어서 처리한다. 그리고 컨트롤러는 비즈니스 로직이 있는 서비스를 호출하는 역할을 담당한다. 참고로 비즈니스 로직을 변경하면 비즈니스 로직을 호출하는 컨트롤러의 코드도 변경될 수 있다. 앞에서는 이해를 돕기 위해 비즈니스 로직을 호출한다는 표현보다는, 비즈니스 로직이라 설명했다.
 - MVC 패턴 (전 / 후) 참고
-  - MVC 패턴 이전
-    <img src="./images/MVC패턴-개요1.png">
-  - MVC 패턴1
-    <img src="./images/MVC패턴-개요2.png">
-  - MVC 패턴2
-    <img src="./images/MVC패턴-개요3.png">
+  - MVC 패턴 이전<br>
+    <img src="./images/MVC패턴-개요1.png"><br>
+  - MVC 패턴1<br>
+    <img src="./images/MVC패턴-개요2.png"><br>
+  - MVC 패턴2<br>
+    <img src="./images/MVC패턴-개요3.png"><br>
 
 ### MVC 패턴 - 적용
 
@@ -1623,7 +1625,7 @@ public class MvcMemberListServlet extends HttpServlet {
     - 그리고 이런 HttpServletRequest, HttpServletResponse를 사용하는 코드는 테스트 케이스를 작성하기도 어렵다
 - `공통 처리가 어렵다`: 기능이 복잡해질수록 컨트롤러에서 공통으로 처리해야 하는 부분이 점점 더 많이 증가할 것이다. 단순히 공통 기능을 메서드로 뽑으면 될 것 같지만, 결과적으로 해당 메서드를 항상 호출해야 하고, 실수로 호출하지 않으면 문제가 될 것이다. 그리고 호출하는 것 자체도 중복이다.
 
-**정리하면 공톤 처리가 어렵다는 문제가 있다.**
+**정리하면 공통 처리가 어렵다는 문제가 있다.**
 
 - 이 문제를 해결하려면 컨트롤러 호출 전에(서블릿이 호출되기 전에) 먼저 공통 기능을 처리해야 한다.<br>
   소위 수문장 역할을 하는 기능이 필요하다. (항상 문을 지키는 어떤 객체가 있고, 그 객체를 통해서 컨트롤러들이 호출되도록 한다. 그래서 그문을 지키는 객체에서 공통 처리를 해버리면 된다. -> 이러한 아이디어가 과거에도 나왔었고 이게 패턴화가 돼서, 프론트 컨트롤러 패턴이라고 한다.)
@@ -1636,10 +1638,10 @@ public class MvcMemberListServlet extends HttpServlet {
 
 ### 프론트 컨트롤러 패턴 소개
 
-- 프론트 컨트롤러 도입 전
-  <img src="./images/프론트컨트롤러패턴소개1.png">
-- 프론트 컨트롤러 도입 후
-  <img src="./images/프론트컨트롤러패턴소개2.png">
+- 프론트 컨트롤러 도입 전<br>
+  <img src="./images/프론트컨트롤러패턴소개1.png"><br>
+- 프론트 컨트롤러 도입 후<br>
+  <img src="./images/프론트컨트롤러패턴소개2.png"><br>
   - (공통의 관심사를 모으기 위한) 프론트 컨트롤러(서블릿)를 도입한다
 
 **FrontController 패턴 특징**
@@ -1824,7 +1826,7 @@ public class FrontControllerServletV1 extends HttpServlet {
 
 모든 컨트롤러에서 뷰로 이동하는 부분에 중복이 있고, 깔끔하지 않다.
 
-v2 구조
+v2 구조<br>
 <img src="./images/v2구조.png">
 
 - 클라이언트가 HTTP요청을 한다
@@ -1970,17 +1972,14 @@ public class FrontControllerServletV2 extends HttpServlet {
 
 #### MyView.render()
 
-> [!TIP]
-> 참고
->
-> ```java
-> public void render(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException{
-> RequestDispatcher dispatcher = request.getRequestDispatcher(viewPath);
-> dispatcher.forward(request, response);
-> }
-> ```
->
-> - 프론트 컨트롤러의 도입으로 `MyView`객체의 `render()`를 호출하는 부분을 모두 일관되게 처리할 수 있다. 각각의 컨트롤러는. `MyView`객체를 생성만 해서 반환하면 된다.
+
+```java
+public void render(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException{
+  RequestDispatcher dispatcher = request.getRequestDispatcher(viewPath);
+  dispatcher.forward(request, response);
+}
+```
+ - 프론트 컨트롤러의 도입으로 `MyView`객체의 `render()`를 호출하는 부분을 모두 일관되게 처리할 수 있다. 각각의 컨트롤러는. `MyView`객체를 생성만 해서 반환하면 된다.
 
 ### Model 추가 - v3
 
@@ -2455,7 +2454,7 @@ public interface ControllerV4 {
 - 지금까지 우리가 개발한 내용을 보면, controllerMap에 ControllerV1 ~ V4가 직접 명시되어있다.<br>따라서 구조상 controllerMap에 다른 버전의 컨트롤러는 넣을 수 없다.
   - ControllerV3는 타입이 맞이 않아 넣을 수 없다.
 
-그러면 이러한 문제르 ㄹ어떻게 해결할 수 있을까?
+그러면 이러한 문제를 어떻게 해결할 수 있을까?
 
 **어댑터 패턴**
 
@@ -2826,21 +2825,19 @@ public class ControllerV4HandlerAdapter implements MyHandlerAdapter {
 
 지금까지 v1 ~ v5로 점진적으로 MVC 프레임워크를 발전시켜 왔다. 정리해보면 다음과 같다.
 
-> [!NOTE]
->
-> - **V1: 프론트 컨트롤러를 도입**
->   - 기존 구조를 최대한 유지하면서 프론트 컨트롤러를 도입
-> - **V2: View 분류**
->   - 단순 반복되는 뷰 로직 분리
-> - **V3: Model**
->   - 서블릿 종속성 제거
->   - 뷰 이름 중복 제거
-> - **V4: 단순하고 실용적인 컨트롤러**
->   - v3와 거의 비슷
->   - 구현 입장에서 ModelView를 직접 생성해서 반환하지 않도록 편리한 인터페이스 제공
-> - **V5: 유연한 컨트롤러**
->   - 어댑터 도입
->   - 어댑터를 추가해서 프레임워크를 유연하고 확장성 있게 설계
+- **V1: 프론트 컨트롤러를 도입**
+  - 기존 구조를 최대한 유지하면서 프론트 컨트롤러를 도입
+- **V2: View 분류**
+  - 단순 반복되는 뷰 로직 분리
+- **V3: Model**
+  - 서블릿 종속성 제거
+  - 뷰 이름 중복 제거
+- **V4: 단순하고 실용적인 컨트롤러**
+  - v3와 거의 비슷
+  - 구현 입장에서 ModelView를 직접 생성해서 반환하지 않도록 편리한 인터페이스 제공
+- **V5: 유연한 컨트롤러**
+  - 어댑터 도입
+  - 어댑터를 추가해서 프레임워크를 유연하고 확장성 있게 설계
 
 여기에 애노테이션을 사용해서 컨트롤러를 더 편리하게 발전시킬 수도 있다. 만약 애노테이션을 사용해서 컨트롤러를 편리하게 사용할 수 있게 하려면 어떻게 해야할까? 바로 애노테이션을 지원하는 어댑터를 추가하면 된다!
 
@@ -3030,7 +3027,7 @@ public class OldController implements Controller {
 
 스프링은 이미 필요한 핸들러 매핑과 핸들러 어댑터를 대부분 구현해두었다. 개발자가 직접 핸들러 매핑과 핸들러 어댑터를 만드는 일은 거의 없다.
 
-**스프링 부트가 자동 등록하는 핸ㄷ르러 매핑과 핸들러 어댑터**<br>
+**스프링 부트가 자동 등록하는 핸들러 매핑과 핸들러 어댑터**<br>
 (실제로는 더 많지만, 중요한 부분 위주로 설명하기 위해 일부 생략)
 
 - **HandlerMapping**
@@ -3244,7 +3241,6 @@ public class SpringMemberFormControllerV1 {
    ```java
    @ServletComponentScan
    @SpringBootApplication
-
    public class ServletApplication {
      public static void main(String[] args) {
        SpringApplication.run(Servlet.run(ServletApplication.class, args);)
@@ -3272,28 +3268,28 @@ public class SpringMemberFormControllerV1 {
 
 `회원 저장 컨트롤러`: src > main > java > hello > servlet > web > springmvc > v1 패키지 내부에 SpringMemberSaveControllerV1 클래스를 생성하자.
 
-    ```java
-    package hello.servlet.web.springmvc.v1;
+  ```java
+  package hello.servlet.web.springmvc.v1;
 
-    @Controller
-    public class SpringMemberSaveControllerV1 {
+  @Controller
+  public class SpringMemberSaveControllerV1 {
 
-        private MemberRepository memberRepository = MemberRepository.getInstance();
+      private MemberRepository memberRepository = MemberRepository.getInstance();
 
-        @RequestMapping("/springmvc/v1/members/save")
-        public ModelAndView process(HttpServletRequest request) {
-            String username = request.getParameter("username");
-            int age = Integer.parseInt(request.getParameter("age"));
+      @RequestMapping("/springmvc/v1/members/save")
+      public ModelAndView process(HttpServletRequest request) {
+          String username = request.getParameter("username");
+          int age = Integer.parseInt(request.getParameter("age"));
 
-            Member member = new Member(username, age);
-            memberRepository.save(member);
+          Member member = new Member(username, age);
+          memberRepository.save(member);
 
-            ModelAndView mv = new ModelAndView("save-result");
-            mv.addObject("member", member);
-            return mv;
-        }
-    }
-    ```
+          ModelAndView mv = new ModelAndView("save-result");
+          mv.addObject("member", member);
+          return mv;
+      }
+  }
+```
 
 - `mv.addObject("member", member)`: 스프링이 제공하는 `ModelAndView`를 통해 Model데이터를 추가할 때는 `addObject()`를 사용하면 된다. 이 데이터는 이후 뷰를 렌더링 할 때 사용한다.
 
@@ -3621,8 +3617,10 @@ public class SpringMemberControllerV3 {
 - 스프링 부트 라이브러리를 사용하면 스프링 부트 로깅 라이브러리(`spring-boot-starter-loggin`) 가 함께 포함된다. 스프링 부트 로깅 라이브러리는 기본으로 다음 로깅 라이브러리를 사용한다
   - SLF4J
   - Logback
-    > [!TIP]
-    > 로그 라이브러리는 Logback, Log4J, Log4J2등등 수 많은 라이브러리가 있는데, 그것을 통합해서 인터페이스로 제공하는 것이 바로 SLF4J 라이브러리다. 쉽게 이야기해서 SLF4J는 인터페이스이고, 그 구현체로 Logback같은 로그 라이브러리를 선택하면 된다. 실무에서는 스프링부트가 기본으로 제공하는 Logback을 대부분 사용한다. (로그를 출력할 때는 SLF4J라는 인터페이스를 사용하고, 그 구현체로 Logback을 사용한다.)
+    
+    
+> [!TIP]
+> 로그 라이브러리는 Logback, Log4J, Log4J2등등 수 많은 라이브러리가 있는데, 그것을 통합해서 인터페이스로 제공하는 것이 바로 SLF4J 라이브러리다. 쉽게 이야기해서 SLF4J는 인터페이스이고, 그 구현체로 Logback같은 로그 라이브러리를 선택하면 된다. 실무에서는 스프링부트가 기본으로 제공하는 Logback을 대부분 사용한다. (로그를 출력할 때는 SLF4J라는 인터페이스를 사용하고, 그 구현체로 Logback을 사용한다.)
 
 **로그 선언**
 
@@ -3759,10 +3757,10 @@ GET method만게 다음과 같이 작성할 수 있다.
 
 ```java
 @RequestMapping(value = "/mapping-get-v1", method = RequestMethod.GET)
-    public String mappingGetV1() {
-        log.info("mappingGetV1");
-        return "ok";
-    }
+public String mappingGetV1() {
+    log.info("mappingGetV1ㅋ");
+    return "ok";
+}
 ```
 
 - POST로 요청하면 스프링 MVC는 HTTP 405상태코드를 반환된다.
@@ -3773,8 +3771,8 @@ HTTP 메서드 매핑을 다음과 같이 축약할 수도 있다.
 ```java
 @GetMapping("/hello-basic")
 public String helloBasic() [
-  log.info("helloBasic")
-  return "ok";
+    log.info("helloBasic")
+    return "ok";
 ]
 ```
 
@@ -3786,8 +3784,8 @@ public String helloBasic() [
 ```java
 @GetMapping("/mapping/{userId}")
 public String mappingPath(@PathVariable("userId") String data) {
-  log.info("mappingPath userId = {}", data);
-  return "ok";
+    log.info("mappingPath userId = {}", data);
+    return "ok";
 }
 ```
 
@@ -3803,11 +3801,11 @@ public String mappingPath(@PathVariable("userId") String data) {
 - 참고
 
   ```java
-    @GetMapping("/mapping/users/{userId}/orders/{orderId}")
-    public String mappingPath(@PathVariable String userId, @PathVariable Long orderId) {
-        log.info("mapping-path userId={}, orderId={}", userId, orderId);
-        return "ok";
-    }
+  @GetMapping("/mapping/users/{userId}/orders/{orderId}")
+  public String mappingPath(@PathVariable String userId, @PathVariable Long orderId) {
+      log.info("mapping-path userId={}, orderId={}", userId, orderId);
+      return "ok";
+  }
   ```
 
 **특정 파라미터 조건 매핑**
@@ -4067,7 +4065,7 @@ HttpServletRequest의 request.getParameter()를 사용하면 다음 두가지 �
 - **GET, 쿼리 파라미터 전송**
   - 예시) `http://localhost:8080/request-param?username=hello&age=20`
 - **POST, HTML Form 전송**
-  - 예시)
+  - 예시)<br>
     <img src="./images/POST, HTML Form전송 예시.png"><br>
   - GET 쿼리 파라미터 전송 방식이든, POST HTML Form 전송 방식이든 둘다 형식이 같으므로 구분없이 조회할 수 있다. 이것을 간단히 **요청 파라미터(Reqest parameter)조회**라 한다.
 
@@ -4428,9 +4426,9 @@ public HttpEntity<String> requestBodyStringV3(HttpEntity<String> httpEntity) {
       ```java
         @PostMapping("request-body-string-v3-v1")
         public HttpEntity<String> requestBodyStringV3V1(RequestEntity<String> httpEntity) {
-        String messageBody = httpEntity.getBody();
-        log.info("messageBody = {}", messageBody);
-        return new ResponseEntity<>("ok", HttpStatus.CREATED);
+          String messageBody = httpEntity.getBody();
+          log.info("messageBody = {}", messageBody);
+          return new ResponseEntity<>("ok", HttpStatus.CREATED);
       }
       ```
 
@@ -4785,7 +4783,7 @@ public class ResponseBodyController {
 
 **@RestController**
 
-- `@Controller` 대신에 `@RestController` 애노테이션을 사용하면, 해당 컨트롤러에 모두 `@ResponseBody`가 적용되는 효과가 있다. 따라서 뷰 템플릿을 사용하는 것이 아니라, HTTP메시지 바디에 직접 데이터를 입력하낟. 이를 그대로 Rest API(HTTP API)를 만들 대 사용하는 컨트롤러이다.
+- `@Controller` 대신에 `@RestController` 애노테이션을 사용하면, 해당 컨트롤러에 모두 `@ResponseBody`가 적용되는 효과가 있다. 따라서 뷰 템플릿을 사용하는 것이 아니라, HTTP메시지 바디에 직접 데이터를 입력한다. 이를 그대로 Rest API(HTTP API)를 만들 때 사용하는 컨트롤러이다.
 - 참고로 `@ResponseBody`는 클래스 레벨에 두면 전체 메서드에 적용되는데, `@RestController`에노테이션 안에 `@ResponseBody`가 적용되어 있다.
 
 ### HTTP 메시지 컨버터
@@ -5787,7 +5785,7 @@ public class BasicItemController {
     - HTML form에서 `action`에 값이 없으면 현재 URL에 데이터를 전송한다.
     - 상품 등록 폼의 URL과 실제 상품 등록을 처리하는 URL을 똑같이 맞추고 HTTP 메시드로 두 기능을 구분한다
       - 상품 등록 폼: GET `basic/items/add`
-      - 상품 등록 처리: POST `basic/items/add'`
+      - 상품 등록 처리: POST `basic/items/add`
     - 이렇게 하면 하나의 URL로 등록 폼과, 등록 처리를 깔끔하게 처리할 수 있다.
   - **취소**
     - 취소시 상품 목록으로 이동한다
@@ -6086,4 +6084,7 @@ public class BasicItemController {
   ```
 
   - `th:if`: 해당 조건이 참이면 실행
-  - `${param.status}`: 타임리프에서 쿼리 파라미터를 편리하게 조회하는 기능. (원래는 컨트롤러에서 모델에서 직접 담고 값을 꺼내야 한다. 그런데 쿼리 파라미터는 자주 사용해서 타임리프에서 직접 지원한다.)
+  - `${param.status}`: 타임리프에서 쿼리 파라미터를 편리하게 조회하는 기능. 
+    - 원래는 컨트롤러에서 모델에서 직접 담고 값을 꺼내야 한다. 그런데 쿼리 파라미터는 자주 사용해서 타임리프에서 직접 지원한다.
+
+뷰 템플릿에 메시지를 추가하고 실행해보면 "저장 완료!"라는 메시지가 나오는 것을 확인할 수 있다. 물론 상품 목록에서 상품 상세로 이동한 경우 이 경우에는 해당 메시지가 출력되지 않는다.
