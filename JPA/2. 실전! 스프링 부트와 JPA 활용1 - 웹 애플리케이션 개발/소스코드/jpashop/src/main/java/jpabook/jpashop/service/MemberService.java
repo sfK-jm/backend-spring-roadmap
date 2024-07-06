@@ -30,6 +30,15 @@ public class MemberService {
         return member.getId();
     }
 
+    /**
+     * 회원 수정
+     */
+    @Transactional
+    public void update(Long id, String name) {
+        Member member = memberRepository.findOne(id);
+        member.setName(name);
+    }
+
     private void validationDuplicateMember(Member member) {
         List<Member> findMembers = memberRepository.findByName(member.getName());
 
