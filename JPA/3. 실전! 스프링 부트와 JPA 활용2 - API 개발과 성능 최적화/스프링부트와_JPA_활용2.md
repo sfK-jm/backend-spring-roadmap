@@ -191,8 +191,36 @@ public class MemberApiController {
 ### 회원조회 V2: 응답 값으로 엔티티가 아닌 별도의 DTO 사용
 
 ```java
+/**
+ * 조회 V2: 응답 값으로 엔티티가 아닌 별도의 DTO를 반환한다.
+ */
+@GetMapping("/api/v2/members")
+public Result memberV2() {
+    List<Member> findMembers = memberService.findMembers();
+    //엔티티 > DTO 변환
+    List<MemberDto> collect = findMembers.stream()
+            .map(m -> new MemberDto(m.getName()))
+            .toList();
+        
+    return new Result(collect);
+}
 
+@Data
+@AllArgsConstructor
+static class Result<T> {
+    private T data;
+}
+
+@Data
+@AllArgsConstructor
+static class MemberDto {
+    private String name;
+}
 ```
+
+- 엔티티를 DTO로 변환해서 반환한다.
+- 엔티티가 변해도 API 스펙이 변경되지 않는다.
+- 추가로 `Result`클래스로 컬렉션을 감싸서 향후 필요한 필드를 추가할 수 있다.
 
 # API개발 고급 - 준비
 
