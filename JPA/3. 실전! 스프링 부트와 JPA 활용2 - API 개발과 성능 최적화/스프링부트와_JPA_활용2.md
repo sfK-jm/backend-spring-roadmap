@@ -609,4 +609,144 @@ public class OrderSimpleQueryDto {
 
 # API 개발 고급 - 컬렉션 조회 최적화
 
+주문내역에서 추가로 주문한 상품 정보를 추가로 조회하자<br>Order기준으로 컬렉션인 Order 기준으로 컬렉션인 `OrderItem`와 `Item`이 필요하다.
+
+앞의 예제에서는 toOne(OneToOne, ManyToOne) 관계만 있었다. 이번에는 컬렉션인 일대다 관계(OneToMany)를 조회하고, 최적화하는 방법을 알아보자
+
+## 주문 조회 V1: 엔티티를 직접 노출
+
+```java
+package jpabook.jpashop.api;
+
+import jpabook.jpashop.domain.Order;
+import jpabook.jpashop.domain.OrderItem;
+import jpabook.jpashop.domain.OrderSearch;
+import jpabook.jpashop.repository.OrderRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+/**
+ * V1. 엔티티 직접 노출
+ * - 엔티티가 변하면 API 스펙이 변한다.
+ * - 트랜잭션 안에서 지연 로딩 필요
+ * - 양방향 연관관계 문제
+ *
+ * V2. 엔티티를 조회해서 DTO로 변환(fetch join 사용x)
+ * - 트랜잭션 안에서 지연 로딩 필요
+ * V3. 엔티티를 조회해서 DTO로 변환(fetch join 사용o)
+ * - 페이징 시에는 N부분을 표기해야함(대신에 batch fetch size? 옵션을 주면 N -> 1 쿼리로 변경 가능)
+ *
+ * V4. JPA에서 DTO로 바로 조회, 컬렉션 N 조회 (1 + N Query)
+ * - 페이징 가능
+ * V5. JPA에서 DTO로 바로 조회, 컬렉션 1 조회 최적화 버전(1 + 1 Query)
+ * - 페이징 가능
+ * V6. JPA에서 DTO로 바로 조회, 플랙 데이터(1Query)
+ * - 페이징 불가능...
+ */
+@RestController
+@RequiredArgsConstructor
+public class OrderApiController {
+
+    private final OrderRepository orderRepository;
+
+    /**
+     * V1. 엔티티 직접 노출
+     * - Hibernate5Module 모듈 등록, LAZY=null 처리
+     * - 양방향 관계 문제 발생 -> @JsonIgnore
+     */
+    @GetMapping("/api/v1/orders")
+    public List<Order> ordersV1() {
+        List<Order> all = orderRepository.findAllByString(new OrderSearch());
+        for (Order order : all) {
+            order.getMember().getName();
+            order.getDelivery().getAddress();
+            List<OrderItem> orderItems = order.getOrderItems();
+            orderItems.stream().forEach(o -> o.getItem().getName());
+        }
+        return all;
+    }
+}
+```
+
+- `orderItem`, `item`관계를 직접 초기화하면 `Hibernate5Module`설정에 의해 엔티티를 JSON으로 생성한다.
+- 양방향 연관관계면 무한 루프에 걸리지 않도록 한곳에 `@JsonIgnore`를 추가해야 한다.
+- 엔티티를 직접 노출하므로 좋은 방법은 아니다.
+
+## 주문 조회 V2: 엔티티를 DTO로 변환
+
+```java
+@GetMapping("/api/v2/orders")
+public List<OrderDto> ordersV2() {
+    List<Order> orders = orderRepository.findAllByString(new OrderSearch());
+    return orders.stream()
+            .map(o -> new OrderDto(o))
+            .toList();
+}
+```
+
+OrderApiController에 추가
+
+```java
+@Data
+static class OrderDto {
+    private Long orderId;
+    private String name;
+    private LocalDateTime orderDate; //주문시간
+    private OrderStatus orderStatus;
+    private Address address;
+    private List<OrderItemDto> orderItems;
+
+    public OrderDto(Order order) {
+        orderId = order.getId();
+        name = order.getMember().getName();
+        orderDate = order.getOrderDate();
+        orderStatus = order.getStatus();
+        address = order.getDelivery().getAddress();
+        orderItems = order.getOrderItems().stream()
+                .map(orderItem -> new OrderItemDto(orderItem))
+                .toList();
+    }
+}
+
+@Data
+static class OrderItemDto {
+    private String itemName; //상품 명
+    private int orderPrice; //주문 가격
+    private int count; //주문 수량
+
+    public OrderItemDto(OrderItem orderItem) {
+        itemName = orderItem.getItem().getName();
+        orderPrice = orderItem.getOrderPrice();
+        count = orderItem.getCount();
+    }
+}
+```
+
+- 지연 로딩으로 너무 많은 SQL 실행
+- SQL 실행 수
+  - `order` 1번
+  - `member`, `address` N번(order 조회 수 만큼)
+  - `orderItem` N번(order 조회 수 만큼)
+  - `item` N번(orderItem 조회 수 만큼)
+
+> [!NOTE]
+> 지연 로딩은 영속성 컨텍스트에 있으면 영속성 컨텍스트에 있는 엔티티를 사용하고 없으면 SQL을 실행한다. 따라서 같은 영속성 컨텍스트에서 이미 로딩한 회원 엔티티를 추가로 조회하면 SQL을 실행하지 않는다.
+
+## 주문 조회 V3: 엔티티를 DTO로 변환 - 페치 조인 최적화
+
+## 주문 조회 V3.1: 엔티티를 DTO로 변환 - 페이징과 한계 돌파
+
+## 페이징과 한계 돌파
+
+## 주문 조회 V4: JPA에서 DTO 직접 조회
+
+## 주문 조회 V5: JPA에서 DTO 직접 조회 - 컬렉션 조회 최적화
+
+## 주문 조회 V6: JPA에서 DTO 직접 조회, 플랫 데이터 최적화
+
+## API 개발 고급 정리
+
 # API 개발 고급 - 실무 필수 최적화
