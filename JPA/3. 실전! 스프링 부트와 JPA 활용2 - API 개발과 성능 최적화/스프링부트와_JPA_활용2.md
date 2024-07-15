@@ -778,6 +778,79 @@ public List<Order> findAllWithItem() {
 
 ## 페이징과 한계 돌파
 
+- 컬렉션을 페치 조인하면 페이징이 불가능하다.
+  - 컬렉션을 페치 조인하면 일대다 조인이 발생하므로 데이터가 예측할 수 없이 증가한다.
+  - 일대다에서 일(1)을 기준으로 페이징을 하는 것이 목적이다. 그런데 데이터는 다(N)을 기준으로 row가 생성된다.
+  - Order를 기준으로 페이징하고 싶은데, 다(N)인 OrderItem을 조이하면 OrderItem이 기준이 되어버린다.
+  - (더 자세한 내용은 자바 ORM 표준 JPA 프로그래밍 - 페치 조인 한계 참조)
+- 이 경우 하이버네이트는 경고 로그를 남기고 모든 DB데이터를 읽어서 메모리에서 페이징을 시도한다. 최악의 경우 장애로 이어질 수 있다.
+
+### 한계 돌파
+
+그러면 페이징 + 컬렉션 엔티티를 함게 조회하려면 어떻게 해야할까?<br>
+지금부터 코드도 단순하고, 성능 최적화도 보장하는 매우 강력한 방법을 소개하겠다. 대부분의 페이징 + 컬렉션 엔티티 조회 문제는 이 방법으로 해결할 수 있다.
+
+- 먼저 **ToOne**(OneToOne, ManyToOne)관계를 모두 페치조인 한다. ToOne관계는 row수를 증가시키지 않으므로 페이징 쿼리에 영향을 주지 않는다.
+- 컬렉션은 지연 로딩으로 조회한다.
+- 지연 로딩 성능 최적화를 위해 `hibernate.default_batch_fetch_size, @BatchSize`를 적용한다.
+  - hibernate.default_batch_fetch_size: 글로벌 설정
+  - @BatchSize: 개별 최적화
+  - 이 옵션을 사용하면 컬렉션이나, 프록시 객체를 한꺼번에 설정한 size만큼 IN쿼리로 조회한다.
+
+OrderRepository에 추가
+
+```java
+public List<Order> findAllWithMemberDelivery(int offset, int limit) {
+    return em.createQuery(
+                    "select o from Order o" +
+                            " join fetch o.member m" +
+                            " join fetch o.delivery d", Order.class)
+            .setFirstResult(offset)
+            .setMaxResults(limit)
+            .getResultList();
+}
+```
+
+OrderApiController에 추가
+
+```java
+/**
+ * V3.1 엔티티를 조회해서 DTO로 변환 페이징 고려
+ * - ToOne 관계만 우선 모두 페치 조인으로 최적화
+ * - 컬렉션 관계는 hibernate.default_batch_fetch_size, @BatchSize로 최적화
+ */
+@GetMapping("/api/v3.1/orders")
+private List<OrderDto> orderV3_page(@RequestParam(value = "offset", defaultValue = "0") int offset,
+                                    @RequestParam(value = "limit", defaultValue = "100") int limit) {
+    List<Order> orders = orderRepository.findAllWithMemberDelivery(offset, limit);
+    return orders.stream()
+            .map(o -> new OrderDto(o))
+            .toList();
+}
+```
+
+최적화 옵션
+
+```yml
+spring:
+  jpa:
+    properties:
+      hibernate:
+        default_batch_fetch_size: 1000
+```
+
+- 개별로 설정하려면 `@BatchSize`를 적용하면 된다.(컬렉션은 컬렉션 필드에, 엔티티는 엔티티 클래스에 적용)
+
+<br>
+
+- 장점
+  - 쿼리 호출 수가 `1+N` -> `1+1`로 최적화 된다.
+  - 조인보다 DB데이터 전송량이 최적화 된다.(Order와 OrderItem을 조인하면 Order가 OrderItem 만큼 중복해서 조회된다. 이 방법은 각각 조회하므로 전송해야할 중복 데이터가 없다.)
+  - 페치 조인 방식과 비교해서 쿼리 호출 수가 약간 증가하지만, DB데이터 전송량이 감소한다.
+  - 컬렉션 페치 조인은 페이징이 불가능 하지만 이 방법은 페이징이 가능하다.
+- 결론
+  - ToOne관계는 페치 조인해도 페이징에 영향을 주지 않는다. 따라서 ToOne 관계는 페치조인으로 쿼리 수를 줄이고 해결하고, 나머지는 `hibernate.default_batch_fetch_size`로 최적화 하자.
+
 ## 주문 조회 V4: JPA에서 DTO 직접 조회
 
 ## 주문 조회 V5: JPA에서 DTO 직접 조회 - 컬렉션 조회 최적화
