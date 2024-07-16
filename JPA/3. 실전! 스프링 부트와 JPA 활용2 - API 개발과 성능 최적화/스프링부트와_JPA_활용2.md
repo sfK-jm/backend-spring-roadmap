@@ -851,7 +851,201 @@ spring:
 - 결론
   - ToOne관계는 페치 조인해도 페이징에 영향을 주지 않는다. 따라서 ToOne 관계는 페치조인으로 쿼리 수를 줄이고 해결하고, 나머지는 `hibernate.default_batch_fetch_size`로 최적화 하자.
 
+> [!NOTE]
+> `default_batch_fetch_size`의 크기는 적당한 사이즈를 골라야 하는데, 100~1000사이를 선택하는 것을 권장한다. 이 전략을 SQL IN절을 사용하는데, 데이터베이스에 따라 IN절 파라미터를 1000으로 제한하기도 한다. 1000으로 잡으면 한번에 1000개를 DB에서 애플리케이션에 불러오므로 DB에 순간 부하가 증가할 수 있다. 하지만 애플리케이션은 100이든 1000이든 결국 전체 데이터를 로딩해야 하므로 메모리 사용량이 같다. 1000으로 설정하는 것이 성능상 가장 좋지만, 결국 DB든 애플리케이션이든 순간 부하를 어디까지 견딜 수 있는지로 결정하면 된다.
+
+### 참고 - 스프링 부트 3.1 - 하이버네이트 6.2 변경사항 - array_contains
+
+스프링 부트 3.1부터는 하이버네이트 6.2를 사용한다.<br>하이버네이트 6.2부터는 `where in`대신에 `array_contains`를 사용한다.
+
+**where in 사용 문법**
+
+```sql
+where item.item_id in (?,?,?,?)
+```
+
+**array_contains 사용 문법**
+
+```sql
+where array_contains(?,item.item_id)
+```
+참고로 `where in`에서 `array_contains`를 사용하도록 변경해도 결과는 완전히 동일하다. 그런데 이렇게 변경하는 이유는 성능 최적화 때문이다.
+
+
+`select ... where item.item_id in(?)`<br>
+이러한 SQL을 실행할 때 데이터베이스는 SQL구문을 이해하기 위해 SQL을 파싱하고 분석하는 등 여러가지 복잡한 일을 처리해야 한다. 그래서 성능을 최적화하기 위해 이미 실행된 SQL구문은 파싱된 결과를 내부에 캐싱하고 있다. 이렇게 해두면 이후에 같은 모양의 SQL이 실행되어도 이미 파싱한 결과를 그대로 사용해서 성능을 최적화 할 수 있다. 참고로 여기서 말하는 캐싱은 SQL 구문 자체를 캐싱한다는 뜻이지 SQL의 실행 결과를 캐싱한다는 뜻이 아니다. SQL구문 자체를 캐싱하기 때문에 여기서 `?`에 바인딩 되는 데이터는 변경되어도 캐싱된 SQL결과를 그대로 사용할 수 있다.
+
+
+그런데 `where in`쿼리는 동적으로 데이터가 변하는 것을 넘어서 SQL구문 자체가 변해버리는 문제가 발생한다.<br>
+다음 예시는 in에 들어가는 데이터 숫자에 따라서 총 3개의 SQL 구문이 생성된다.<br>
+```sql
+where item.item_id in(?)
+where item.item_id in(?,?)
+where item.item_id in(?,?,?,?)
+```
+SQL입장에서 `?`로 바인딩 되는 숫자 자체가 다르기 때문에 완전히 다른 SQL이다. 따라서 총 3개의 SQL 구문이 만들어지고, 캐싱도 3개를 따로 해야한다. 이렇게 되면 성능 관점에서 좋지 않다.
+
+
+`array_contains`를 사용하면 이런 문제를 깔끔하게 해결할 수 있다.<br>
+이 문법은 결과적으로 `where in`과 동일하다. `array_contains`은 왼쪽에 배열을 넣는데, 배열에 들어있는 숫자가 오른쪽(item_id)에 있다면 참이된다.
+
+예시)다음 둘은 같다.<br>
+```sql
+select ... where array_contains([1,2,3],item.item_id)
+select ... item.item_id where in(1,2,3)
+```
+
+이 문법은 ?에 바인딩 되는 것이 딱1개 이다. 배열이 1개가 들어가는 것이다.<br>
+```sql
+select ... where array_contains(?,item.item_id)
+```
+
+따라서 배열에 들어가는 데이터가 늘어도 SQL구문 자체가 변하지 않는다. `?`에는 배열 하나만 들어가면 된다.
+
+이런 방법을 사용하면 앞서 이야기한 동적으로 늘어나느 SQL구문을 걱정하지 않아도 된다.<br>결과적으로 데이터가 동적으로 늘어나도 같은 SQL구문을 그대로 사용해서 성능을 최적화 할 수 있다.
+
+참고로 `array_contains`에서 `default_batch_fetch_size`에 맞추어 배열에 `null`값을 추가하는데, 이 부분은 아마도 특정 데이터베이스에 따라서 배열의 데이터 숫자가 같아야 최적화 되기 때문에 그런 것으로 추정된다.
+
 ## 주문 조회 V4: JPA에서 DTO 직접 조회
+
+OrderApiController에 추가
+
+```java
+private final OrderQueryRepository orderQueryRepository;
+
+@GetMapping("/api/v4/orders")
+public List<OrderQueryDto> ordersV4() {
+    return orderQueryRepository.findOrderQueryDtos();
+}
+```
+
+OrderQueryRepository 생성
+
+```java
+package jpabook.jpashop.repository.order.query;
+
+import jakarta.persistence.EntityManager;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+@RequiredArgsConstructor
+public class OrderQueryRepository {
+
+    private final EntityManager em;
+
+    /**
+     * 컬렉션은 별도로 조회
+     * Query: 루트 1번, 컬렉션 N번
+     * 단건 조회에서 많이 사용하는 방식
+     */
+    public List<OrderQueryDto> findOrderQueryDtos() {
+        //루트 조회(toOne 코드를 모두 한번에 조회)
+        List<OrderQueryDto> result = findOrders();
+
+        //루프를 돌면서 컬렉션 추가(추가 쿼리 실행)
+        result.forEach(o -> {
+            List<OrderItemQueryDto> orderItems = findOrderItems(o.getOrderId());
+            o.setOrderItems(orderItems);
+        });
+        return result;
+    }
+
+    /**
+     * 1:N 관계(컬렉션)를 제외한 나머지를 한번에 조회
+     */
+    private List<OrderQueryDto> findOrders() {
+        return em.createQuery(
+                "select new jpabook.jpashop.repository.order.query.OrderQueryDto(o.id, m.name, o.orderDate, o.status, d.address)" +
+                        " from  Order o" +
+                        " join o.member m" +
+                        " join o.delivery d", OrderQueryDto.class)
+                .getResultList();
+    }
+
+    /**
+     * 1:N 관계인 orderItems 조회
+     */
+    private List<OrderItemQueryDto> findOrderItems(Long orderId) {
+        return em.createQuery(
+                        "select new jpabook.jpashop.repository.order.query.OrderItemQueryDto(oi.order.id, i.name, oi.orderPrice, oi.count)" +
+                                " from OrderItem oi" +
+                                " join oi.item i" +
+                                " where oi.order.id = : orderId", OrderItemQueryDto.class)
+                .setParameter("orderId", orderId)
+                .getResultList();
+    }
+}
+```
+
+OrderQueryDto 생성
+
+```java
+package jpabook.jpashop.repository.order.query;
+
+import jpabook.jpashop.domain.Address;
+import jpabook.jpashop.domain.OrderStatus;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Data
+@EqualsAndHashCode(of = "orderId")
+public class OrderQueryDto {
+
+    private Long orderId;
+    private String name;
+    private LocalDateTime orderDate; //주문시간
+    private OrderStatus orderStatus;
+    private Address address;
+    private List<OrderItemQueryDto> orderItems;
+
+    public OrderQueryDto(Long orderId, String name, LocalDateTime orderDate, OrderStatus orderStatus, Address address) {
+        this.orderId = orderId;
+        this.name = name;
+        this.orderDate = orderDate;
+        this.orderStatus = orderStatus;
+        this.address = address;
+    }
+}
+```
+
+OrderItemQueryDto 생성
+
+```java
+package jpabook.jpashop.repository.order.query;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import lombok.Data;
+
+@Data
+public class OrderItemQueryDto {
+
+    @JsonIgnore
+    private Long orderId; //주문번호
+    private String itemName; //상품명
+    private int orderPrice; //주문 가격
+    private int count; //주문 수량
+
+    public OrderItemQueryDto(Long orderId, String itemName, int orderPrice, int count) {
+        this.orderId = orderId;
+        this.itemName = itemName;
+        this.orderPrice = orderPrice;
+        this.count = count;
+    }
+}
+```
+
+- Query: 루트 1번, 컬렉션 N번 실행
+- ToOne(N:1, 1:1) 관계들을 먼저 조회하고, ToMany(1:N) 관계는 각각 별도로 처리한다.
+  - 이런 방식을 선택한 이유는 다음과 같다.
+  - ToOne 관계는 조인해도 데이터 row수가 증가하지 않는다.
+  - ToMany(1:N) 관계는 조인하면 row수가 증가한다.
+- row수가 증가하지 않는 ToOne 관계는 조인으로 최적화 하기 쉬우므로 한번에 조회하고, ToMany관계는 최적화 하기 어려우므로 `findOrderItems()`같은 별도의 메서드로 조회한다.
 
 ## 주문 조회 V5: JPA에서 DTO 직접 조회 - 컬렉션 조회 최적화
 
