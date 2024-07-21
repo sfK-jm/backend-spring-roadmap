@@ -6,9 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
-import study.data_jpa.domain.Member;
-
-import static org.junit.jupiter.api.Assertions.*;
+import study.data_jpa.entity.Member;
 
 @SpringBootTest
 @Transactional
