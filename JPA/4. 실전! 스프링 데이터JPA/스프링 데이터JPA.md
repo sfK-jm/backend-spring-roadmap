@@ -522,10 +522,125 @@ class MemberJpaRepositoryTest {
 
 - 기본 CRUD를 검증한다.
 
-
 ## 공통 인터페이스 설정
 
+
+**JavaConfig설정 - 스프링 부트 사용시 생략 가능**
+
+```java
+@Configuration
+@EnableJpaRepository(basePackages = "jpabook.jpashop.repository")
+public class AppConfig {}
+```
+
+- 스프링 부트 사용시 `@SpringBootApplication` 위치를 지정(해당 패키지와 하위 패키지 인식)
+- 만약 위치가 달라지면 `@EnableJpaRepositories` 필요 
+
+**스프링 데이터 JPA가 구현 클래스 대신 생성**
+
+<img src="./imgs/스프링_데이터_JPA가_구현_클래스_대신_생성.png"><br>
+
+- `org.springframework.data.repository.Repository`를 구현한 클래스는 스캔 대상
+  - MemberRepository인터페이스가 동작한 이유
+  - 실제 출력해보기(Proxy)
+  - memberRepository.getClass() -> class com.sun.proxy.$ProxyXXX
+- `@Repository`애노테이션 생략 가능
+  - 컴포넌트 스캔을 스프링 데이터 JPA가 자동으로 처리
+  - JPA예외를 스프링 예외로 변환하는 과정도 자동으로 처리 
+
+
 ## 공통 인터페이스 적용
+
+순수 JPA로 구현한 `MemberJpaRepository`대신에 스프링 데이터 JPA가 제공하는 공통 인터페이스 사용
+
+**스프링 데이터 JPA기반 MemberRepository**
+
+```java
+public interface MemberRepository extends JpaRepository<Member, Long> {
+}
+```
+
+**MemberRepository 테스트**
+
+```java
+package study.data_jpa.repository;
+
+import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
+import study.data_jpa.entity.Member;
+
+import java.util.List;
+
+@SpringBootTest
+@Transactional
+public class MemberRepositoryTest {
+
+    @Autowired
+    MemberRepository memberRepository;
+
+    @Test
+    public void testMember() {
+        Member member = new Member("memberA");
+        Member savedMember = memberRepository.save(member);
+
+        Member findMember = memberRepository.findById(savedMember.getId()).get();
+
+        Assertions.assertThat(findMember.getId()).isEqualTo(member.getId());
+        Assertions.assertThat(findMember.getUsername()).isEqualTo(member.getUsername());
+        Assertions.assertThat(findMember).isEqualTo(member);
+    }
+
+    @Test
+    public void basicCRUD() {
+        Member member1 = new Member("member1");
+        Member member2 = new Member("member2");
+        memberRepository.save(member1);
+        memberRepository.save(member2);
+
+        //단건 조회 검증
+        Member findMember1 = memberRepository.findById(member1.getId()).get();
+        Member findMember2 = memberRepository.findById(member2.getId()).get();
+
+        Assertions.assertThat(findMember1).isEqualTo(member1);
+        Assertions.assertThat(findMember2).isEqualTo(member2);
+
+        //리스트 조회 검증
+        List<Member> all = memberRepository.findAll();
+        Assertions.assertThat(all.size()).isEqualTo(2);
+
+        //삭제 검증
+        memberRepository.delete(member1);
+        memberRepository.delete(member2);
+
+        long deletedCount = memberRepository.count();
+        Assertions.assertThat(deletedCount).isEqualTo(0);
+
+    }
+
+}
+```
+
+기존 순수 JPA기반 테스트에서 사용했던 코드를 그대로 스프링 데이터 JPA 리포지토리 기반 테스트로 변경해도 동일한 방식으로 동작
+
+**TeamRepository 생성**
+
+```java
+package study.data_jpa.repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import study.data_jpa.entity.Team;
+
+public interface TeamRepository extends JpaRepository<Team, Long> {
+}
+```
+
+- TeamRepository는 테스트 생략
+- Generic
+  - T: 엔티티 타입
+  - ID: 식별자 타입(PK)
 
 ## 공통 인터페이스 분석
 
