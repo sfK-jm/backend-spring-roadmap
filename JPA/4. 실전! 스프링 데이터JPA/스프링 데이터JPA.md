@@ -690,6 +690,96 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
 # 쿼리 메소드 기능
 
+스프링 데이터 JPA가 제공하는 마법 같은 기능
+
+**쿼리 메소드 기능 3가지**
+
+- 메소드 이름으로 쿼리 생성
+- 매소드 이름으로 JPA NamedQuery호출
+- `@Query`어노테이션을 사용해서 리포지토리 인터페이스에 쿼리 직접 정의
+
+## 메소드 이름으로 쿼리 생성
+
+메소드 이름을 분석해서 JPQL 쿼리 실행
+
+이름과 나이를 기준으로 회원을 조회하려면?
+
+**순수 JPA 리포지토리**
+
+```java
+public List<Member> findByUsernameAndAgeGreaterThan(String username, int age) {
+    return em.createQuery("select m from Member m where m.username =:username and m.age > :age", Member.class)
+            .setParameter("username", username)
+            .setParameter("age", age)
+            .getResultList();
+}
+```
+
+**순수 JPA 테스트 코드**
+
+```java
+@Test
+public void findByUsernameAndAgeGreaterThan() {
+    Member m1 = new Member("AAA", 10);
+    Member m2 = new Member("AAA", 20);
+    memberJpaRepository.save(m1);
+    memberJpaRepository.save(m2);
+
+    List<Member> result = memberJpaRepository.findByUsernameAndAgeGreaterThan("AAA", 15);
+    Assertions.assertThat(result.get(0).getUsername()).isEqualTo("AAA");
+    Assertions.assertThat(result.get(0).getAge()).isEqualTo(20);
+    Assertions.assertThat(result.size()).isEqualTo(1);
+}
+```
+
+**스프링 데이터 JPA**
+
+```java
+public interface MemberRepository extends JpaRepository<Member, Long> {
+
+    List<Member> findByUsernameAndAgeGreaterThan(String username, int age);
+}
+```
+
+- 스프링 데이터 JPA는 메소드 이름을 분석해서 JPQL을 생성하고 실행
+
+**쿼리 메소드 필터 조건**
+
+스프링 데이터 JPA 공식 문서 참고: https://docs.spring.io/spring-data/jpa/reference/jpa/query-methods.html#jpa.query-methods.query-creation
+
+**스프링 데이터 JPA가 제공하는 쿼리 메소드 기능**
+
+- 조회: find...By, read...By, query...By get...By
+  - https://docs.spring.io/spring-data/jpa/reference/jpa/query-methods.html#jpa.query-methods.query-creation
+  - 예:) findHelloBy처럼 ...에 식별하기 위한 내용(설명)이 들어가도 된다.
+- COUNT: count...By 반환타입 `long`
+- EXISTS: exists...By 반환타입 `boolean`
+- DISTINCT: findDistinct, findMemberDistinctBy
+- LIMIT: findFirst3, findFirst, findTop, findTop3
+
+> [!NOTE]
+> 이 기능은 엔티티의 필드명이 변경되면 인터페이스에 정의한 메서드 이름도 꼭 함께 변환해야 한다. 그렇지 않으면 애플리케이션을 시작하는 시점에 오류가 발생한다.<br>이렇게 애플리케이션 로딩 시점에 오류를 인지할 수 있는 것이 스프링 데이터 JPA의 매우 큰 장점이다.
+
+## JPA NamedQuery
+
+## @Query, 리포지토리 메소드에 쿼리 정의하기
+
+## @Query, 값, DTO 조회하기
+
+## 파라미터 바인딩
+
+## 바인딩
+
+## 순수 JPA 페이징과 정렬
+
+## 스프링 데이터 JPA 페이징과 정렬
+
+## 벌크성 수정 쿼리
+
+## @EntityGraph
+
+## JPA Hint & Lock
+
 # 확장 기능
 
 # 스프링 데이터 JPA 분석
