@@ -128,7 +128,7 @@ JDBC는 1997년에 출시될 정도로 오래된 기술이고, 사용하는 방�
 **SQL Mapper**<br>
 <img src="./imgs/JDBC이해/SQL_Mapper.png"><br>
 
-- 장전: JDBC를 편리하게 사용하도록 도와준다.
+- 장점: JDBC를 편리하게 사용하도록 도와준다.
   - SQL 응답 결과를 객체로 편리하게 변환해준다.
   - JDBC의 반복 코드를 제거해준다.
 - 단점: 개발자가 SQL을 직접 작성해야 한다.
@@ -319,7 +319,7 @@ import java.sql.*;
 public class MemberRepositoryV0 {
 
     public Member save(Member member) throws SQLException {
-        String sql = "insert into member(member_id, money)values (?, ?)";
+        String sql = "insert into member(member_id, money) values (?, ?)";
 
         Connection con = null;
         PreparedStatement pstmt = null;
@@ -381,7 +381,7 @@ public class MemberRepositoryV0 {
 - `pstmt.executeUpdate()`: `Statement`를 통해 준비된 SQL을 커넥션을 통해 실제 데이터베이스에 전달한다. 참고로 `executeUpdate()`은 `int`를 반환하는데, 영향받은 DB row수를 반환한다. 여기서는 하나의 row를 등록했으므로 1을 반환한다.
   - 참고) executeUpdate()<br>
     ```java
-        int executeUpdate() throws SQLException;
+    int executeUpdate() throws SQLException;
     ```
 
 **리소스 정리**<br>
@@ -547,7 +547,7 @@ public class MemberRepositoryV0 {
 **ResultSet 결과 예시**<br>
 <img src="./imgs/JDBC이해/ResultSet_결과_예시.png"><br>
 
-- 참고로 위 `ResultSet`의 결과 예시는 회원이 2명 조회디는 경우이다.
+- 참고로 위 `ResultSet`의 결과 예시는 회원이 2명 조회되는 경우이다.
   - `1-1`에서 `rs.next()`를 호출한다.
   - `1-2`의 결과로 `cursor`가 다음으로 이동한다. 이 경우 `cursor`가 가리키는 데이터가 있으므로 `true`를 반환한다.
   - `2-1`에서 `rs.next()`를 호출한다.
@@ -596,7 +596,7 @@ class MemberRepositoryV0Test {
 
 - 회원을 등록하고 그 결과를 바로 조회해서 확인해 보았다.
 - 참고로 실행 결과에 `member` 객체의 참조 값이 아니라 실제 데이터가 보이는 이유는 롬복의 `@Data`가 `toString()`을 적절히 오버라이딩해서 보여주기 때문이다.
-- `isEqualTo()`: `findMember.euals(member)`를 비교한다. 결과가 참인 이유는 롬복의 `@Data`는 해당 객체의 모든 필드를 사용하도록 `equals()`를 오버라이딩 하기 때문이다. (member == findMember와 같이 인스턴스 비교를 하게되면 서로 다르기 때문에 false이다.)
+- `isEqualTo()`: `findMember.equals(member)`를 비교한다. 결과가 참인 이유는 롬복의 `@Data`는 해당 객체의 모든 필드를 사용하도록 `equals()`를 오버라이딩 하기 때문이다. (member == findMember와 같이 인스턴스 비교를 하게되면 서로 다르기 때문에 false이다.)
 
 ## JDBC 개발 - 수정, 삭제
 
@@ -834,7 +834,7 @@ private void useDataSource(DataSource dataSource) throws SQLException {
 기존 코드와 비슷하지만 `DriverManagerDataSource`는 `DataSource`를 통해서 커넥션을 획득할 수 있다. 참고로 `DriverManagerDataSource`는 스프링이 제공하는 코드이다.<br>
 
 > [!TIP]
-> DriverManagerDataSource에서 남겨주는 로그를 보자. "Creating new JDBC DriverManager Connection to [jdbc:h2:tcp://localhost/-/test]" -> JDBC DriverManager 를 통해서 jdbc:h2:tcp://localhost/-/test에 접근해서 커넥션을 만들었음을 알 수 있다.
+> DriverManagerDataSource에서 남겨주는 로그를 보자.<br> "Creating new JDBC DriverManager Connection to [jdbc:h2:tcp://localhost/-/test]"<br> -> JDBC DriverManager 를 통해서 jdbc:h2:tcp://localhost/-/test에 접근해서 커넥션을 만들었음을 알 수 있다.
 
 ### 파라미터 차이
 
