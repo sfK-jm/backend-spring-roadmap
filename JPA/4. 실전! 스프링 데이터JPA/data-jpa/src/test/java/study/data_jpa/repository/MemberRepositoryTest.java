@@ -1,6 +1,7 @@
 package study.data_jpa.repository;
 
 import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -55,4 +56,14 @@ public class MemberRepositoryTest {
 
     }
 
+    @Test
+    @DisplayName("@Query, 리포리토리 메소드에 쿼리 정의하기")
+    public void query_method() {
+        Member member = new Member("memberA", 20);
+        memberRepository.save(member);
+
+        List<Member> findMember = memberRepository.findUser("memberA", 20);
+
+        Assertions.assertThat(findMember.get(0)).isEqualTo(member);
+    }
 }
