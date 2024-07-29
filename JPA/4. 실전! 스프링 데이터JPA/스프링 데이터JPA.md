@@ -880,7 +880,27 @@ public class MemberDto {
 
 ## 파라미터 바인딩
 
-## 바인딩
+- 위치 기반
+- 이름 기반
+
+```sql
+select m from Member m where m.username = ?0 //위치 기반
+select m from Member m where m.username = :name //이름 기반
+```
+
+**파라미터 바인딩**
+
+```java
+public interface MemberRepository extends JpaRepository<Member, Long> {
+    @Query("select m from Member m where m.username = :name")
+    Member findMembers(@Param("name") String username);
+}
+```
+
+> [!TIP]
+> 코드 가독성과 유지보수를 위해 이름 기반 파라미터 바인딩을 사용하자
+
+## 반환타입
 
 ## 순수 JPA 페이징과 정렬
 

@@ -132,4 +132,17 @@ public class MemberRepositoryTest {
             System.out.println("dto = " + dto);
         }
     }
+
+    @Test
+    public void findMembers() {
+        Member member1 = new Member("member1", 10);
+        Member member2 = new Member("member2", 20);
+
+        memberRepository.save(member1);
+        memberRepository.save(member2);
+
+        Member findMember = memberRepository.findMembers("member1");
+
+        Assertions.assertThat(findMember).isEqualTo(member1);
+    }
 }

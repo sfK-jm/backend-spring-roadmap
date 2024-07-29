@@ -1415,7 +1415,7 @@ em.persist(member);
 - @Inheritance(strategy = inheritanceType.XXX)
   - **JOINED**: 조인 저략
   - **SINGLE_TABLE**: 단일 테이블 전략
-  - **TABLE_PER)CLASS**: 구현 클래스마다 테이블 전략
+  - **TABLE_PER_CLASS**: 구현 클래스마다 테이블 전략
 - @DiscriminatorColumn(name="DTYPE")
 - @DiscriminatorValue("XXX")
 
@@ -1447,7 +1447,7 @@ em.persist(member);
 
 <img src="./imgs/고급_매핑/구현_클래스마다_테이블_전략.png"><br>
 
-- **이 전략은 데이터에이스 설계와 ORM 전무가 둘 다 추천X**
+- **이 전략은 데이터에이스 설계와 ORM 전문가 둘 다 추천X**
 - 장점
   - 서브 타입을 명확하게 구분해서 처리할 때 효과적
   - not null 제약조건 사용 가능
