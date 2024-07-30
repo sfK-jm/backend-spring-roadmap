@@ -995,9 +995,7 @@ public String comments(Model model) {
     <span th:text="${data}">html data</span>
 
     <h1>1. 표준 HTML 주석</h1>
-    <!--
-<span th:text="${data}">html data</span>
--->
+    <!--<span th:text="${data}">html data</span>-->
 
     <h1>2. 타임리프 파서 주석</h1>
     <!--/* [[${data}]] */-->
@@ -1020,8 +1018,7 @@ public String comments(Model model) {
 <h1>예시</h1>
 <span>Spring!</span>
 <h1>1. 표준 HTML 주석</h1>
-<!--
-<span th:text="${data}">html data</span> -->
+<!-- <span th:text="${data}">html data</span> -->
 <h1>2. 타임리프 파서 주석</h1>
 <h1>3. 타임리프 프로토타입 주석</h1>
 <span>Spring!</span>
@@ -1822,10 +1819,9 @@ public class Item {
 
 상품이 등록되는 곳에 다음과 같이 로그를 남겨서 값이 잘 넘어오는지 확인해보자
 
-****FormItemController** 추가
+**FormItemController** 추가
 
 ```java
-
  @PostMapping("/add")
  public String addItem(Item item, RedirectAttributes redirectAttributes) {
       log.info("item.open={}", item.getOpen());
