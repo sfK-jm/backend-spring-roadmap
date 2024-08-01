@@ -5,6 +5,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.domain.Sort;
 import org.springframework.transaction.annotation.Transactional;
 import study.data_jpa.entity.Member;
 import study.data_jpa.entity.Team;
@@ -144,5 +148,60 @@ public class MemberRepositoryTest {
         Member findMember = memberRepository.findMembers("member1");
 
         Assertions.assertThat(findMember).isEqualTo(member1);
+    }
+
+    //페이징 조건과 정렬 조건 설정
+    @Test
+    public void page() throws Exception {
+        //given
+        memberRepository.save(new Member("member1", 10));
+        memberRepository.save(new Member("member2", 10));
+        memberRepository.save(new Member("member3", 10));
+        memberRepository.save(new Member("member4", 10));
+        memberRepository.save(new Member("member5", 10));
+
+        //when
+        PageRequest pageRequest = PageRequest.of(0, 3, Sort.by(Sort.Direction.DESC, "username"));
+
+        // 두번째 파라미터로 받은 Pageable은 인터페이스다. 따라서 실제 사용할 때는 해당 인터페이스를 구현한 PageRequest객체를 사용한다
+        // PageRequest 생성자의 첫 번째 파라미터에는 현재 페이지를, 두 번째 파라미터에는 조회할 데이터 수를 입력한다.
+        // 여기에 추가로 정렬 정보도 파라미터로 사용할 수 있다. 참고로 페이지는 0 부터 시작한다
+        Page<Member> page = memberRepository.findByAge(10, pageRequest);
+
+        //then
+        List<Member> content = page.getContent(); //조회된 데이터
+        Assertions.assertThat(content.size()).isEqualTo(3); //조회된 데이터 수
+        Assertions.assertThat(page.getTotalElements()).isEqualTo(5); //전체 데이터 수
+        Assertions.assertThat(page.getNumber()).isEqualTo(0); //페이지 번호
+        Assertions.assertThat(page.getTotalPages()).isEqualTo(2); //전체 페이지 번호
+        Assertions.assertThat(page.isFirst()).isTrue(); //첫번째 항목인가?
+        Assertions.assertThat(page.hasNext()).isTrue(); //다음 페이지가 있는가?
+    }
+
+    @Test
+    public void findMemberAllCountBy() throws Exception {
+        //given
+        memberRepository.save(new Member("member1", 10));
+        memberRepository.save(new Member("member2", 10));
+        memberRepository.save(new Member("member3", 10));
+        memberRepository.save(new Member("member4", 10));
+        memberRepository.save(new Member("member5", 10));
+
+        //when
+
+        PageRequest pageRequest = PageRequest.of(0, 3, Sort.by(Sort.Direction.DESC, "username"));
+        Page<Member> page = memberRepository.findMemberAllCountBy(pageRequest);
+
+        //then
+
+        List<Member> content = page.getContent();
+        for (Member member : content) {
+            System.out.println("member = " + member);
+        }
+
+        Assertions.assertThat(content.size()).isEqualTo(3);
+        Assertions.assertThat(page.getTotalElements()).isEqualTo(5);
+        Assertions.assertThat(page.getNumber()).isEqualTo(0);
+        Assertions.assertThat(page.getTotalPages()).isEqualTo(2);
     }
 }

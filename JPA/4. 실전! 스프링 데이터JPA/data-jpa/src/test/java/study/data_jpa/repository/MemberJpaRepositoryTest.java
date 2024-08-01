@@ -97,6 +97,9 @@ class MemberJpaRepositoryTest {
 
         //then
         Assertions.assertThat(members.size()).isEqualTo(3);
+        for (Member member : members) {
+            System.out.print(member + "|||");
+        }
         Assertions.assertThat(totalCount).isEqualTo(5);
     }
 }
