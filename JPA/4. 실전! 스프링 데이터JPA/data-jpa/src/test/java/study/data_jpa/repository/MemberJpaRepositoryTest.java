@@ -1,5 +1,6 @@
 package study.data_jpa.repository;
 
+import jakarta.persistence.EntityManager;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +16,9 @@ class MemberJpaRepositoryTest {
 
     @Autowired
     MemberJpaRepository memberJpaRepository;
+
+    @Autowired
+    EntityManager em;
 
     @Test
     public void testMember() {
@@ -101,5 +105,29 @@ class MemberJpaRepositoryTest {
             System.out.print(member + "|||");
         }
         Assertions.assertThat(totalCount).isEqualTo(5);
+    }
+    
+    @Test
+    public void bulkUpdate() throws Exception {
+        //given
+        memberJpaRepository.save(new Member("member1", 10));
+        memberJpaRepository.save(new Member("member2", 10));
+        memberJpaRepository.save(new Member("member3", 20));
+        memberJpaRepository.save(new Member("member4", 21));
+        memberJpaRepository.save(new Member("member5", 40));
+
+        //when
+        int resultCount = memberJpaRepository.bulkAgePlus(20);
+
+        em.flush();
+        em.clear();
+
+        //then
+        Assertions.assertThat(resultCount).isEqualTo(3);
+
+        List<Member> all = memberJpaRepository.findAll();
+        for (Member member : all) {
+            System.out.println("member = " + member);
+        }
     }
 }
