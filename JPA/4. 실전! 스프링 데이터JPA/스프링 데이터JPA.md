@@ -1464,7 +1464,227 @@ List<Member> result = memberRepository.findMemberCustom();
 
 ## Auditing
 
+- 엔티티를 생성, 변경할 때 변경한 사람과 시간을 추적하고 싶으면?
+  - 등록일
+  - 수정일
+  - 등록자
+  - 수정자
+
+### 순수 JPA사용
+
+우선 등록일, 수정일 적용
+
+```java
+package study.data_jpa.entity;
+
+@MappedSuperclass
+@Getter
+public class JpaBaseEntity {
+
+    @Column(updatable = false)
+    private LocalDateTime createdDate;
+    private LocalDateTime updatedDate;
+
+    @PrePersist
+    public void prePersist() {
+        LocalDateTime now = LocalDateTime.now();
+        createdDate = now;
+        updatedDate = now;
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        updatedDate = LocalDateTime.now();
+    }
+}
+```
+
+```java
+public class Member extends JpaBaseEntity{}
+```
+
+**확인 코드**
+
+```java
+@Test
+public void jpaEventBaseEntity() throws Exception {
+    //given
+    Member member = new Member("member1");
+    memberRepository.save(member); //@PrePersist
+
+    Thread.sleep(100);
+    member.setUsername("member2");
+
+    em.flush(); //@PreUpdate
+    em.clear();
+
+    //when
+    Member findMember = memberRepository.findById(member.getId()).get();
+
+    //then
+    System.out.println("findMember = " + findMember.getCreatedDate());
+    System.out.println("findMember.getUpdatedDate() = " + findMember.getUpdatedDate());
+}
+```
+
+**JPA 주요 이벤트 어노테이션**
+
+- @PrePersist, @PostPersist
+- @PreUpdate, @PostUpdate
+
+### 스프링 데이터 JPA사용
+
+**설정**
+
+- `@EnableJpAuditing` -> 스프링 부트 설정 클래스에 적용해야 함
+- `@EntityListeners(AuditingEntityListener.class)` -> 엔티티에 적용
+
+**사용 어노테이션**
+
+- `@CreatedDate`
+- `@LastModifiedDate`
+- `@CreatedBy`
+- `@LastModifiedBy`
+
+**스프링 데이터 Auditing 적용 - 등록일 수정일**
+
+```java
+package study.data_jpa.entity;
+
+@EntityListeners(AuditingEntityListener.class)
+@MappedSuperclass
+@Getter
+public class BaseEntity {
+
+    @CreatedDate
+    @Column(updatable = false)
+    private LocalDateTime createdDate;
+
+    @LastModifiedDate
+    private LocalDateTime lastModifiedDate;
+}
+```
+
+**스프링 데이터 Auditing 적용 - 등록자, 수정자
+
+```java
+package study.data_jpa.domain;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.EntityListeners;
+import jakarta.persistence.MappedSuperclass;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import java.time.LocalDateTime;
+
+@EntityListeners(AuditingEntityListener.class)
+@MappedSuperclass
+public class BaseEntity {
+
+    @CreatedDate
+    @Column(updatable = false)
+    private LocalDateTime createdDate;
+
+    @LastModifiedDate
+    private LocalDateTime lastModifiedDate;
+
+    @CreatedDate
+    @Column(updatable = false)
+    private String createdBy;
+
+    @LastModifiedBy
+    private String lastModifiedBy;
+
+}
+```
+
+등록자, 수정자를 처리해주는 `AuditorAware`스프링 빈 등록
+
+```java
+@EnableJpaAuditing
+@SpringBootApplication
+public class DataJpaApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(DataJpaApplication.class, args);
+	}
+
+	@Bean
+	public AuditorAware<String> auditorProvider() {
+		return () -> Optional.of(UUID.randomUUID().toString());
+	}
+}
+```
+
+> [!CAUTION]
+> `DataJpaApplication`에 `@EnableJpaAuditing`도 함께 등록해야 함
+
+실무에서는 세션 정보나, 스프링 시큐리티 로그인 정보에서 ID를 받음
+
+> [!NOTE]
+> 실무에서 대부분의 엔티티는 등록시간, 수정시간이 필요하지만, 등록자, 수정자는 없을 수도 있다. 그래서 다음과 같이 Base 타입을 분리하고, 원하는 타입을 선택해서 상속한다.
+
+```java
+public class BaseTimeEntity {
+    @CreatedDate
+    @Column(updatable = false)
+    private LocalDateTime createdDate;
+
+    @LastModifiedDate
+    private LocalTime lastModifiedDate;
+}
+
+public class BaseEntity extends BaseTimeEntity{
+    @CreatedBy
+    @Column(updatable = false)
+    private String createdBy;
+
+    @LastModifiedBy
+    private String lastModifiedBy;
+}
+```
+
+> [!TIP]
+> 저장시점에 등록일, 등록자는 물론이고, 수정일, 수정자도 같은 데이터가 저장된다. 데이터가 중복 저장되는 것 같지만, 이렇게 해두면 변경 컬럼만 확인해도 마지막에 업데이트한 유저를 확인할 수 있으므로 유지보수 관점에서 편리하다. 이렇게 하지 않으면 변경 컬럼이 `null`일때 등록 컬럼을 또 찾아야 한다.<br>참고로 저장시점에 저장데이터만 입력하고 싶으면 `@EnableJpaAuditing(modifyOnCreate = false)`옵션을 사용하면 된다.
+
 ## Web 확장 - 도메인 클래스 컨버터
+
+HTTP 파라미터로 넘어온 엔티티의 아이디로 엔티티 객체를 찾아서 바인딩
+
+**도메인 클래스 컨버터 사용 전**
+
+```java
+@RestController
+@RequiredArgsConstructor
+public class MemberController {
+
+    private final MemberRepository memberRepository;
+
+    @GetMapping("/members/{id}")
+    public String findMember(@PathVariable("id") Long id) {
+        Member member = memberRepository.findById(id).get();
+        return member.getUsername();
+    }
+}
+```
+
+**도메인 클래스 컨버터 사용 후**
+
+```java
+@GetMapping("/members/{id}")
+public String findMember(@PathVariable("id") Member member) {
+    return member.getUsername();
+}
+```
+
+- HTTP 요청은 회원 `id`를 받지만 도메인 클래스 컨버터가 중간에 동작해서 회원 엔티티 객체를 반환
+- 도메인 클래스 컨버터도 리포지토리를 사용해서 엔티티를 사용
+
+> [!CAUTION]
+> 도메인 클래스 컨버터로 엔티티를 파라미터로 받으면, 이 엔티티는 단순 조회용으로만 사용해야 한다.(트랜잭션이 없는 범위에서 엔티티를 조회했으므로, 엔티티를 변경해도 DB에 반영되지 않는다.)
 
 ## Web 확장 - 페이징과 정렬
 
