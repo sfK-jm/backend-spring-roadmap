@@ -10,7 +10,7 @@ import study.data_jpa.entity.Member;
 
 import java.util.List;
 
-public interface MemberRepository extends JpaRepository<Member, Long> {
+public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecificationExecutor<Member> {
 
     //List<Member> findByUsername(@Param("username") String username);
 
