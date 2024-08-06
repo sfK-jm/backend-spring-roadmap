@@ -3456,7 +3456,7 @@ bindingResult.addError(new ObjectError("item", "가격 * 수량의 합은 10,000
 
 ### BindingResult2
 - 스프링이 제공하는 검증 오류를 보관하는 객체이다. 검증 오류가 발생하면 여기에 보관하면 된다.
-- `BindingResult`가 있으면 `@ModelAttribute`에 데이터 바인딩 시 오류가 발생해도 컨트롤러가 호출된다.!
+- `BindingResult`가 있으면 `@ModelAttribute`에 데이터 바인딩 시 오류가 발생해도 컨트롤러가 호출된다!
 
 **예) @ModelAttribute에 바인딩 시 타입 오류가 발생하면?**<br>
 - `BindingResult`가 없으면 -> 400 오류가 발생하면서 컨트롤러가 호출되지 않고, 오류 페이지로 이동한다.

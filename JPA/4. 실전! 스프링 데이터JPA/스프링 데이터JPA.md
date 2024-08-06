@@ -2082,4 +2082,216 @@ public class QueryByExampleTest {
 
 ## Projections
 
+- https://docs.spring.io/spring-data/jpa/reference/repositories/projections.html#projections
+
+엔티티 대신에 DTO를 편리하게 조회할 때 사용<br>전체 엔티티가 아니라 만약 회원 이름만 딱 조회하고 싶으면?
+
+```java
+public interface UsernameOnly{
+    String getUsername();
+}
+```
+
+- 조회할 엔티티의 필드를 getter 형식으로 지정하면 해당 필드만 선택해서 조회(Projection)
+
+```java
+public interface MemberRepository ... {
+    List<UsernameOnly> findProjectionsByUsername(String username);
+}
+```
+
+- 메서드 이름은 자유, 반환 타입으로 인지
+
+```java
+@Test
+public void projections() throws Exception {
+    //given
+    Team teamA = new Team("teamA");
+    em.persist(teamA);
+
+    Member m1 = new Member("m1", 0, teamA);
+    Member m2 = new Member("m2", 0, teamA);
+    em.persist(m1);
+    em.persist(m2);
+    em.flush();
+    em.clear();
+        
+    //when
+    List<UsernameOnly> result = memberRepository.findProjectionsByUsername("m1");
+        
+    //then
+    Assertions.assertThat(result.size()).isEqualTo(1);
+}
+```
+
+```sql
+select m.username from member m
+    where m.username='m1';
+```
+
+SQL에서도 select절에서 username만 조회(Projection)하는 것을 확인
+
+**인터페이스 기반 Closed Projections**
+
+프로퍼티 형식(getter)의 인터페이스를 제공하면, 구현체는 스프링 데이터 JPA가 제공
+
+```java
+public interface UsernameOnly {
+    String getUsername();
+}
+```
+
+**인터페이스 기반 Open Proejctions**
+
+다음과 같이 스프링의 SpEL문법도 지원
+
+```java
+public interface UsernameOnly {
+    @Value("#{target.username + ' ' + target.age + ' ' + target.team.name}")
+    String getUsername();
+}
+```
+
+**단! 이렇게 SpEL문법을 사용하면, DB에서 엔티티필드를 다 조회해온 다음에 계산한다! 따라서 JPQL SELECT절 최적화가 안된다.**
+
+**글래스 기반 Projection**
+
+다음과 같이 인터페이스가 아닌 구체적인 DTO 형식도 가능<br>생성자의 파라미터 이름으로 매칭
+
+```java
+package study.data_jpa.DTO;
+
+public class UsernameOnlyDto {
+
+    private final String username;
+
+    public UsernameOnlyDto(String username) {
+        this.username = username;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+}
+```
+
+**동적 Projections**
+
+다음과 같이 Generic type을 주면, 동적으로 프로젝션 데이터 변경 가능
+
+```java
+<T> List<T> findProjectionsByUsername(String name, Class<T> type);
+```
+
+**사용코드**
+
+```java
+List<UsernameOnly> result = memberRepository.findProjectionsByUsername("m1", UsernameOnly.class);
+```
+
+**중첩 구조 처리**
+
+```java
+public interface NestedClosedProjection {
+    String getUsername();
+    TeamInfo getTeam();
+
+    interface TeamInfo {
+        String getName();
+    }
+}
+```
+
+```sql
+select 
+    m.username as col_0_0_,
+    t.teamid as col_1_0_,
+    t.name as name2_2_
+from
+    member m
+left outer join
+    team t
+        on m.teamid=t.teamid
+where
+    m.username=?
+```
+
+**주의**
+
+- 프로젝션 대상이 root 엔티티면, JPQL SELECT절 최적화 가능
+- 프로젝션 대상이 ROOT가 아니면
+  - LEFT OUTER JOIN처리
+  - 모든 필드를 SELECT해서 엔티티로 조회한 다음에 계산
+
+**정리**
+
+- 프로젝션 대상이 root 엔티티면 유용하다
+- 프로젝션 대상이 root 엔티티를 넘어가면 JPQL SELECT 최적화가 안된다!
+- 실무의 복잡한 쿼리를 해결하기에는 한계가 있다.
+- 실무에서는 단순할 때만 사용하고, 조금만 복잡해지면 QueryDSL을 사용하자
+
 ## 네이티브 쿼리
+
+가급적 네이티브 쿼리는 사용하지 않는게 좋음, 정말 어쩔 수 없을 때 사용<br>최근에 나온 궁극의 방법 -> 스프링 데이터 Projections 활용
+
+**스프링 데이터 JPA기반 네이티브 쿼리**
+
+- 페이징 지원
+- 반환 타입
+  - Object[]
+  - Tuple
+  - DTO(스프링 데이터 인터페이스 Projections 지원)
+- 제약
+  - Sort 파라미터를 통한 정렬이 정상 동작하지 않을 수 있음(믿지 말고 직접 처리)
+  - JPQL처럼 애플리케이션 로딩 시점에 문법 확인 불가
+  - 동적 쿼리 불가
+
+**JPA 네티티브 SQL 지원**
+
+```java
+public interface MemberRepository extends JpaRepository<Member, Long> {
+    
+    @Query(value = "select * from member where username = ?", nativeQuery = true)
+    Member findByNativeQuery(String username);
+}
+```
+
+- JQPL은 위치 기반 파라미터를 1부터 시작하지만 네이티브 SQL은 0부터 시작
+- 네이티브 SQL을 엔티티가 아닌 DTO로 변환은 하려면
+  - DTO 대신 JPA TUPLE 조회
+  - DTO 대신 MAP조회
+  - @SqlResultMapping -> 복잡
+  - Hibernate ResultTransformer를 사용해야 함 -> 복잡
+  - 네이티브 SQL을 DTO로 조회할 때는 JdbcTemplate or myBatis 권장
+
+**Projections 활용**
+
+예) 스프링 데이터 JPA네이티브 쿼리 + 인터페이스 기반 Projections 활용
+
+```java
+@Query(value = "SELECT m.memer_id as id, m.username, t.name as teamName " + 
+            "FROM member m left join team t ON m.team_id = t.team_id",
+            countQuery = "SELECT count(*) from Member",
+            nativeQuery = true)
+Page<MemberProjection> findByNativeProjection(Pageable pageable);
+```
+
+### 동적 네이티브 쿼리
+
+- 하이버네이트를 직접 활용
+- 스프링 JdbcTemplate, myBatis, jooq같은 외부 라이브러리 사용
+
+예) 하이버네이트 기능 사용
+
+```java
+//given
+String sql = "select m.username as username from member m";
+
+List<MemberDto> result = em.createNativeQuery(sql)
+        .setFirstReqult(0)
+        .setMaxResult(10)
+        .unwrap(NativeQuery.class)
+        .addScalar("username")
+        .setResultTransformer(Transformers.aliasToBean(MemberDto.class))
+        .getResultList();
+```

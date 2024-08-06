@@ -1,4 +1,4 @@
-package study.data_jpa.repository;
+package study.data_jpa.DTO;
 
 import lombok.Data;
 
