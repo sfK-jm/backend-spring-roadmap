@@ -1,22 +1,26 @@
 package study.data_jpa.repository;
 
+
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.QueryHint;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 import study.data_jpa.DTO.MemberDto;
 import study.data_jpa.entity.Member;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
-public interface MemberRepository extends JpaRepository<Member, Long>//, JpaSpecificationExecutor<Member>
-{
-
-    //List<Member> findByUsername(@Param("username") String username);
+public interface MemberRepository extends JpaRepository<Member, Long>, MemberRepositoryCustom, JpaSpecificationExecutor<Member> {
 
     List<Member> findByUsernameAndAgeGreaterThan(String username, int age);
+
+    List<Member> findTop3HelloBy();
+
+    List<Member> findByUsername(@Param("username") String username);
 
     @Query("select m from Member m where m.username = :username and m.age = :age")
     List<Member> findUser(@Param("username") String username, @Param("age") int age);
@@ -24,57 +28,54 @@ public interface MemberRepository extends JpaRepository<Member, Long>//, JpaSpec
     @Query("select m.username from Member m")
     List<String> findUsernameList();
 
-    @Query("select new study.data_jpa.DTO.MemberDto(m.id, m.username, t.name) " +
-            "from Member m join m.team t")
+    @Query("select new study.data_jpa.DTO.MemberDto(m.id, m.username, t.name) from Member m join m.team t")
     List<MemberDto> findMemberDto();
 
-    @Query("select m from Member m where m.username = :name")
-    Member findMembers(@Param("name") String username);
+    @Query("select m from Member m where m.username in :names")
+    List<Member> findByNames(@Param("names") Collection<String> names);
+
+    List<Member> findListByUsername(String username);
+
+    Member findMemberByUsername(String username);
+
+    Optional<Member> findOptionalByUsername(String username);
 
     Page<Member> findByAge(int age, Pageable pageable);
 
-    @Query(value = "select m from Member m",
-            countQuery = "select count(m.username) from Member m")
-    Page<Member> findMemberAllCountBy(Pageable pageable);
-
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("update Member m set m.age = m.age + 1 where m.age >= :age")
     int bulkAgePlus(@Param("age") int age);
 
     @Query("select m from Member m left join fetch m.team")
     List<Member> findMemberFetchJoin();
 
-    //공통 메서드 오버라이드 <테스트를 위해 잠시 주석처리함>
     @Override
     @EntityGraph(attributePaths = {"team"})
+        // 내부적으로 fetch join을 사용하는 것
     List<Member> findAll();
 
-    //JPQL + 엔티티 그래프
-//    @EntityGraph(attributePaths = {"team"})
-//    @Query("select m from Member m")
-//    List<Member> findMemberEntityGraph();
-
-    //메서드 이름으로 쿼리에서 특히 편리하다
     @EntityGraph(attributePaths = {"team"})
-    List<Member> findByUsername(String username);
-
-    @EntityGraph("Member.all")
     @Query("select m from Member m")
     List<Member> findMemberEntityGraph();
+
+    @EntityGraph(attributePaths = {"team"})
+//    @EntityGraph("Member.all")
+    List<Member> findEntityGraphByUsername(@Param("username") String username);
 
     @QueryHints(value = @QueryHint(name = "org.hibernate.readOnly", value = "true"))
     Member findReadOnlyByUsername(String username);
 
-    @QueryHints(value = {@QueryHint(name = "org.hibernate.readOnly",
-                                    value = "true")},
-            forCounting = true)
-    Page<Member> findByUsername(String name, Pageable pageable);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    List<Member> findLockByUsername(String username);
 
-//    @Lock(LockModeType.PESSIMISTIC_WRITE)
-//    List<Member> findByUsername(String name);
+    <T> List<T> findProjectionsByUsername(@Param("username") String username, Class<T> type);
 
     @Query(value = "select * from member where username = ?", nativeQuery = true)
     Member findByNativeQuery(String username);
 
-    List<Member> findAll(Specification<Member> spec);
+    @Query(value = "SELECT m.member_id as id, m.username, t.name as teamName" +
+            " FROM member m left join team t ON m.team_id = t.team_id",
+            countQuery = "SELECT count(*) from member",
+            nativeQuery = true)
+    Page<MemberProjection> findByNativeProjection(Pageable pageable);
 }

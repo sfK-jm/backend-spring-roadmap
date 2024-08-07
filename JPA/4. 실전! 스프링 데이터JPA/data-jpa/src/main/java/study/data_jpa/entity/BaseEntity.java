@@ -10,10 +10,11 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
-@EntityListeners(AuditingEntityListener.class)
 @MappedSuperclass
 @Getter
-public class BaseEntity extends BaseTimeEntity{
+@EntityListeners(AuditingEntityListener.class)
+public abstract class BaseEntity extends BaseTimeEntity{
+
     @CreatedBy
     @Column(updatable = false)
     private String createdBy;

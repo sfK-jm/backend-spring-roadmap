@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 
 @MappedSuperclass
 @Getter
-public class JpaBaseEntity {
+public abstract class JpaBaseEntity {
 
     @Column(updatable = false)
     private LocalDateTime createdDate;
@@ -19,12 +19,12 @@ public class JpaBaseEntity {
     @PrePersist
     public void prePersist() {
         LocalDateTime now = LocalDateTime.now();
-        createdDate = now;
-        updatedDate = now;
+        this.createdDate = now;
+        this.updatedDate = now;
     }
 
     @PreUpdate
     public void preUpdate() {
-        updatedDate = LocalDateTime.now();
+        this.updatedDate = LocalDateTime.now();
     }
 }

@@ -1,257 +1,314 @@
 package study.data_jpa.repository;
 
 import jakarta.persistence.EntityManager;
-import org.assertj.core.api.Assertions;
-import org.junit.jupiter.api.DisplayName;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 import study.data_jpa.DTO.MemberDto;
-import study.data_jpa.DTO.UsernameOnly;
 import study.data_jpa.entity.Member;
 import study.data_jpa.entity.Team;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @Transactional
+//@Rollback(value = false)
 public class MemberRepositoryTest {
 
-    @Autowired
-    MemberRepository memberRepository;
-
-    @Autowired
-    TeamRepository teamRepository;
-
-    @Autowired
-    EntityManager em;
+    @Autowired MemberRepository memberRepository;
+    @Autowired TeamRepository teamRepository;
+    @PersistenceContext EntityManager em;
 
     @Test
-    public void testMember() {
+    public void testMember() throws Exception {
+        System.out.println("memberRepository.getClass() = " + memberRepository.getClass());
+
+        // given
         Member member = new Member("memberA");
         Member savedMember = memberRepository.save(member);
 
+        // when
         Member findMember = memberRepository.findById(savedMember.getId()).get();
 
-        Assertions.assertThat(findMember.getId()).isEqualTo(member.getId());
-        Assertions.assertThat(findMember.getUsername()).isEqualTo(member.getUsername());
-        Assertions.assertThat(findMember).isEqualTo(member);
+        //then
+        assertThat(findMember.getId()).isEqualTo(member.getId());
+        assertThat(findMember.getUsername()).isEqualTo(member.getUsername());
+        assertThat(findMember).isEqualTo(member);
     }
 
     @Test
-    public void basicCRUD() {
+    public void basicCRUD() throws Exception {
+
         Member member1 = new Member("member1");
         Member member2 = new Member("member2");
         memberRepository.save(member1);
         memberRepository.save(member2);
 
-        //단건 조회 검증
-        Member findMember1 = memberRepository.findById(member1.getId()).get();
+        // 단건 조회 검증
+        Member findMember1 = memberRepository.findById(member1.getId()).get();  // 이렇게 쓰는건 별로 좋지 않음
         Member findMember2 = memberRepository.findById(member2.getId()).get();
+        assertThat(findMember1).isEqualTo(member1);
+        assertThat(findMember2).isEqualTo(member2);
 
-        Assertions.assertThat(findMember1).isEqualTo(member1);
-        Assertions.assertThat(findMember2).isEqualTo(member2);
-
-        //리스트 조회 검증
+        // 리스트 조회 검증
         List<Member> all = memberRepository.findAll();
-        Assertions.assertThat(all.size()).isEqualTo(2);
+        assertThat(all.size()).isEqualTo(2);
 
-        //삭제 검증
+        // 카운트 검증
+        long count = memberRepository.count();
+        assertThat(count).isEqualTo(2);
+
+        // 삭제 검증
         memberRepository.delete(member1);
         memberRepository.delete(member2);
-
         long deletedCount = memberRepository.count();
-        Assertions.assertThat(deletedCount).isEqualTo(0);
-
+        assertThat(deletedCount).isEqualTo(0);
     }
 
     @Test
-    @DisplayName("@Query, 리포리토리 메소드에 쿼리 정의하기")
-    public void query_method() {
-        Member member = new Member("memberA", 20);
-        memberRepository.save(member);
+    public void findByUsernameAndAgeGreaterThan() throws Exception {
+        // given
+        Member m1 = new Member("AAA", 10);
+        Member m2 = new Member("AAA", 20);
+        memberRepository.save(m1);
+        memberRepository.save(m2);
 
-        List<Member> findMember = memberRepository.findUser("memberA", 20);
+        // when
+        List<Member> result = memberRepository.findByUsernameAndAgeGreaterThan("AAA", 15);
 
-        Assertions.assertThat(findMember.get(0)).isEqualTo(member);
+        //then
+        assertThat(result.get(0).getUsername()).isEqualTo("AAA");
+        assertThat(result.get(0).getAge()).isEqualTo(20);
+        assertThat(result.size()).isEqualTo(1);
     }
 
     @Test
-    public void findByUsername() {
-        Member member = new Member("memberA", 5);
-        memberRepository.save(member);
-
-        List<Member> findMember = memberRepository.findByUsername("memberA");
-
-        Assertions.assertThat(findMember.get(0)).isEqualTo(member);
+    public void findHelloBy() throws Exception {
+        List<Member> helloBy = memberRepository.findTop3HelloBy();
     }
 
     @Test
-    public void findByUsernameAndAgeGreaterThan() {
-        Member memberA = new Member("memberA", 100);
-        Member memberB = new Member("memberA", 30);
-        Member memberC = new Member("memberA", 20);
-        Member memberD = new Member("memberA", 10);
+    public void testNamedQuery() throws Exception {
+        // given
+        Member m1 = new Member("AAA", 10);
+        Member m2 = new Member("BBB", 20);
+        memberRepository.save(m1);
+        memberRepository.save(m2);
 
-        memberRepository.save(memberA);
-        memberRepository.save(memberB);
-        memberRepository.save(memberC);
-        memberRepository.save(memberD);
+        // when
+        List<Member> result = memberRepository.findByUsername("AAA");
+        Member findMember = result.get(0);
 
-        List<Member> findMember = memberRepository.findByUsernameAndAgeGreaterThan("memberA", 20);
+        //then
+        assertThat(findMember).isEqualTo(m1);
+    }
 
-        for (Member member : findMember) {
-            System.out.println("member = " + member);
-        }
+    @Test
+    public void testQuery() throws Exception {
+        // given
+        Member m1 = new Member("AAA", 10);
+        Member m2 = new Member("BBB", 20);
+        memberRepository.save(m1);
+        memberRepository.save(m2);
+
+        // when
+        List<Member> result = memberRepository.findUser("AAA", 10);
+
+        //then
+        assertThat(result.get(0)).isEqualTo(m1);
     }
 
     @Test
     public void findUsernameList() {
-        Member member1 = new Member("memberA", 10);
-        Member member2 = new Member("memberB", 20);
+        Member m1 = new Member("AAA", 10);
+        Member m2 = new Member("BBB", 20);
+        memberRepository.save(m1);
+        memberRepository.save(m2);
 
-        memberRepository.save(member1);
-        memberRepository.save(member2);
-
-        List<String> MemberList = memberRepository.findUsernameList();
-
-        for (String s : MemberList) {
-            System.out.println(s);
+        List<String> usernameList = memberRepository.findUsernameList();
+        for (String s : usernameList) {
+            System.out.println("s = " + s);
         }
     }
 
     @Test
     public void findMemberDto() {
-        Team teamA = new Team("TeamA");
-        teamRepository.save(teamA);
+        Team team = new Team("teamA");
+        teamRepository.save(team);
 
-        Member memberA = new Member("memberA", 10, teamA);
-        memberRepository.save(memberA);
-
-        Member memberB = new Member("memberB", 20, teamA);
-        memberRepository.save(memberB);
+        Member m1 = new Member("AAA", 10);
+        m1.setTeam(team);
+        memberRepository.save(m1);
 
         List<MemberDto> memberDto = memberRepository.findMemberDto();
-
         for (MemberDto dto : memberDto) {
             System.out.println("dto = " + dto);
         }
     }
 
     @Test
-    public void findMembers() {
-        Member member1 = new Member("member1", 10);
-        Member member2 = new Member("member2", 20);
+    public void findByNames() {
+        Member m1 = new Member("AAA", 10);
+        Member m2 = new Member("BBB", 20);
+        memberRepository.save(m1);
+        memberRepository.save(m2);
 
-        memberRepository.save(member1);
-        memberRepository.save(member2);
-
-        Member findMember = memberRepository.findMembers("member1");
-
-        Assertions.assertThat(findMember).isEqualTo(member1);
-    }
-
-    //페이징 조건과 정렬 조건 설정
-    @Test
-    public void page() throws Exception {
-        //given
-        memberRepository.save(new Member("member1", 10));
-        memberRepository.save(new Member("member2", 10));
-        memberRepository.save(new Member("member3", 10));
-        memberRepository.save(new Member("member4", 10));
-        memberRepository.save(new Member("member5", 10));
-
-        //when
-        PageRequest pageRequest = PageRequest.of(0, 3, Sort.by(Sort.Direction.DESC, "username"));
-
-        // 두번째 파라미터로 받은 Pageable은 인터페이스다. 따라서 실제 사용할 때는 해당 인터페이스를 구현한 PageRequest객체를 사용한다
-        // PageRequest 생성자의 첫 번째 파라미터에는 현재 페이지를, 두 번째 파라미터에는 조회할 데이터 수를 입력한다.
-        // 여기에 추가로 정렬 정보도 파라미터로 사용할 수 있다. 참고로 페이지는 0 부터 시작한다
-        Page<Member> page = memberRepository.findByAge(10, pageRequest);
-
-        //then
-        List<Member> content = page.getContent(); //조회된 데이터
-        Assertions.assertThat(content.size()).isEqualTo(3); //조회된 데이터 수
-        Assertions.assertThat(page.getTotalElements()).isEqualTo(5); //전체 데이터 수
-        Assertions.assertThat(page.getNumber()).isEqualTo(0); //페이지 번호
-        Assertions.assertThat(page.getTotalPages()).isEqualTo(2); //전체 페이지 번호
-        Assertions.assertThat(page.isFirst()).isTrue(); //첫번째 항목인가?
-        Assertions.assertThat(page.hasNext()).isTrue(); //다음 페이지가 있는가?
-    }
-
-    @Test
-    public void findMemberAllCountBy() throws Exception {
-        //given
-        memberRepository.save(new Member("member1", 10));
-        memberRepository.save(new Member("member2", 10));
-        memberRepository.save(new Member("member3", 10));
-        memberRepository.save(new Member("member4", 10));
-        memberRepository.save(new Member("member5", 10));
-
-        //when
-
-        PageRequest pageRequest = PageRequest.of(0, 3, Sort.by(Sort.Direction.DESC, "username"));
-        Page<Member> page = memberRepository.findMemberAllCountBy(pageRequest);
-
-        //then
-
-        List<Member> content = page.getContent();
-        for (Member member : content) {
+        List<Member> result = memberRepository.findByNames(Arrays.asList("AAA", "BBB"));
+        for (Member member : result) {
             System.out.println("member = " + member);
         }
-
-        Assertions.assertThat(content.size()).isEqualTo(3);
-        Assertions.assertThat(page.getTotalElements()).isEqualTo(5);
-        Assertions.assertThat(page.getNumber()).isEqualTo(0);
-        Assertions.assertThat(page.getTotalPages()).isEqualTo(2);
-        Assertions.assertThat(page.isFirst()).isTrue();
-        Assertions.assertThat(page.hasNext()).isTrue();
     }
 
     @Test
-    public void bulkUpdate() throws Exception {
-        //given
+    public void returnType() {
+        Member m1 = new Member("AAA", 10);
+        Member m2 = new Member("BBB", 20);
+        memberRepository.save(m1);
+        memberRepository.save(m2);
+
+        List<Member> result = memberRepository.findListByUsername("asdfasdf");
+        System.out.println("result = " + result);
+        System.out.println("result.size() = " + result.size());
+
+        Member findMember = memberRepository.findMemberByUsername("asdfasdf");
+        System.out.println("findMember = " + findMember);
+
+        // JAVA8이 나온 후, null을 반환할지, 예외 터트릴지에 대한 논쟁이 끝남 -> Optional<T>
+        Optional<Member> optional = memberRepository.findOptionalByUsername("asdfasdf");
+        System.out.println("optional = " + optional);
+    }
+
+    @Test
+    public void paging() {
+        memberRepository.save(new Member("member1", 10));
+        memberRepository.save(new Member("member2", 10));
+        memberRepository.save(new Member("member3", 10));
+        memberRepository.save(new Member("member4", 10));
+        memberRepository.save(new Member("member5", 10));
+
+        int age = 10;
+        PageRequest pageRequest = PageRequest.of(0, 3, Sort.by(Sort.Direction.DESC, "username"));
+
+        Page<Member> page = memberRepository.findByAge(age, pageRequest);  // Page, Slice, List
+
+        // API로 반환할 때는 아래와 같이 DTO로 반환
+        Page<MemberDto> toMap = page.map(member -> new MemberDto(member.getId(), member.getUsername(), null));
+
+        List<Member> content = page.getContent();
+
+        assertThat(content.size()).isEqualTo(3);
+        assertThat(page.getTotalElements()).isEqualTo(5);
+        assertThat(page.getNumber()).isEqualTo(0);
+        assertThat(page.getTotalPages()).isEqualTo(2);
+        assertThat(page.isFirst()).isTrue();
+        assertThat(page.hasNext()).isTrue();
+    }
+
+    @Test
+    public void bulkUpdate() {
         memberRepository.save(new Member("member1", 10));
         memberRepository.save(new Member("member2", 19));
         memberRepository.save(new Member("member3", 20));
         memberRepository.save(new Member("member4", 21));
         memberRepository.save(new Member("member5", 40));
 
-        //when
         int resultCount = memberRepository.bulkAgePlus(20);
 
-        //then
-        Assertions.assertThat(resultCount).isEqualTo(3);
+        List<Member> result = memberRepository.findByUsername("member5");
+        Member member5 = result.get(0);
+        System.out.println("member5 = " + member5);
+
+        assertThat(resultCount).isEqualTo(3);
     }
 
     @Test
-    public void queryHint() throws Exception {
-        //given
-        memberRepository.save(new Member("member1", 10));
+    public void findMemberLazy() throws Exception {
+        // given
+        Team teamA = new Team("teamA");
+        Team teamB = new Team("teamB");
+        teamRepository.save(teamA);
+        teamRepository.save(teamB);
+
+        Member member1 = new Member("member1", 10, teamA);
+        Member member2 = new Member("member2", 10, teamB);
+        memberRepository.save(member1);
+        memberRepository.save(member2);
+
         em.flush();
         em.clear();
 
-        //when
-        Member member = memberRepository.findReadOnlyByUsername("member1");
-        member.setUsername("member2");
-
-        em.flush(); //Update Query 실행x
-        em.clear();
+        // when
+        List<Member> members = memberRepository.findEntityGraphByUsername("member1");
 
         //then
-        List<Member> members = memberRepository.findAll();
+        for (Member member : members) {
+            System.out.println("member.getUsername() = " + member.getUsername());
+            System.out.println("member.getTeam().getClass() = " + member.getTeam().getClass());
+            System.out.println("member.getTeam().getName() = " + member.getTeam().getName());
+        }
+    }
 
-        Assertions.assertThat(members.get(0).getUsername()).isEqualTo("member1");
+    @Test
+    public void queryHint() {
+        Member member1 = memberRepository.save(new Member("member1", 10));
+        em.flush();
+        em.clear();
+
+//        Member findMember = memberRepository.findById(member1.getId()).get();
+//        findMember.setUsername("member2");
+
+        Member findMember = memberRepository.findReadOnlyByUsername("member1");
+        findMember.setUsername("member2");
+        em.flush();
+    }
+
+    @Test
+    public void lock() {
+        Member member1 = memberRepository.save(new Member("member1", 10));
+        em.flush();
+        em.clear();
+
+        List<Member> result = memberRepository.findLockByUsername("member1");
+    }
+
+    @Test
+    public void callCustom() {
+        List<Member> result = memberRepository.findMemberCustom();
     }
 
     @Test
     public void specBasic() throws Exception {
-        //given
+        // given
+        Team teamA = new Team("teamA");
+        em.persist(teamA);
+
+        Member m1 = new Member("m1", 0, teamA);
+        Member m2 = new Member("m2", 0, teamA);
+        em.persist(m1);
+        em.persist(m2);
+        em.flush();
+        em.clear();
+
+        // when
+        Specification<Member> spec = MemberSpec.username("m1").and(MemberSpec.teamName("teamA"));
+        List<Member> result = memberRepository.findAll(spec);
+
+        //then
+        assertThat(result.size()).isEqualTo(1);
+    }
+    
+    @Test
+    public void projections() throws Exception {
+        // given
         Team teamA = new Team("teamA");
         em.persist(teamA);
 
@@ -263,12 +320,42 @@ public class MemberRepositoryTest {
         em.flush();
         em.clear();
 
-        //when
-        Specification<Member> spec = MemberSpec.username("m1").and(MemberSpec.teamName("teamA"));
-        List<Member> result = memberRepository.findAll(spec);
+        // when
+        List<NestedClosedProjections> result = memberRepository.findProjectionsByUsername("m1", NestedClosedProjections.class);
 
         //then
-        Assertions.assertThat(result.size()).isEqualTo(1);
+        for (NestedClosedProjections nestedClosedProjections : result) {
+
+            String username = nestedClosedProjections.getUsername();
+            System.out.println("username = " + username);
+
+            String teamName = nestedClosedProjections.getTeam().getName();
+            System.out.println("teamName = " + teamName);
+        }
     }
 
+    @Test
+    public void nativeQuery() throws Exception {
+        // given
+        Team teamA = new Team("teamA");
+        em.persist(teamA);
+
+        Member m1 = new Member("m1", 0, teamA);
+        Member m2 = new Member("m2", 0, teamA);
+        em.persist(m1);
+        em.persist(m2);
+
+        em.flush();
+        em.clear();
+
+        // when
+        Page<MemberProjection> result = memberRepository.findByNativeProjection(PageRequest.of(0, 10));
+        List<MemberProjection> content = result.getContent();
+
+        //then
+        for (MemberProjection memberProjection : content) {
+            System.out.println("memberProjection.getUsername() = " + memberProjection.getUsername());
+            System.out.println("memberProjection.getTeamName() = " + memberProjection.getTeamName());
+        }
+    }
 }
