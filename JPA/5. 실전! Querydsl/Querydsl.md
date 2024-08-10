@@ -467,9 +467,74 @@ public void startQuerydsl() {
 
 ### JPAQueryFactory를 필드로
 
+```java
+@SpringBootTest
+@Transactional
+public class QuerydslBasicTest {
+
+    @PersistenceContext
+    EntityManager em;
+  
+    JPAQueryFactory queryFactory;
+
+    @BeforeEach
+    public void before() {
+        queryFactory = new JPAQueryFactory(em);
+        //...
+    }
+
+    @Test
+    public void startQuerydsl2() {
+        QMember m = new QMember("m");
+
+        Member findMember = queryFactory
+                .select(m)
+                .from(m)
+                .where(m.username.eq("member1"))
+                .fetchOne();
+        
+        assertThat(findMember.getUsername()).isEqualTo("member1");
+    }
+}
+```
+
 - JPAQueryFactory를 필드로 제공하면 동시성 문제는 어떻게 될까? 동시성 문제는 JPAQueryFactory를 생성 할 때 제공하는 EntityManager(em)에 달려있다. 스프링 프레임워크는 여러 쓰레드에서 동시에 같은 EntityManager에 접근해도, 트랜잭션 마다 별도의 영속성 컨텍스트를 제공하기 때문에, 동시성 문제는 걱정하지 않아도 된다.
 
 ## 기본 Q-Type 활용
+
+**Q클래스 인스턴스를 사용하는 2가지 방법**
+
+```java
+QMember qMember = new QMember("m"); //별칭 직접 지정
+QMember qMember = QMember.member; //기본 인스턴스 사용
+```
+
+**기본 인스턴스를 static import와 함께 사용**
+
+```java
+import static study.querydsl.entity.QMember.*;
+
+@Test
+public void startQuerydsl3() {
+
+    Member findMember = queryFactory
+        .select(member)
+        .from(member)
+        .where(member.username.eq("member1"))
+            .fetchOne();
+
+    assertThat(findMember.getUsername()).isEqualTo("member1");
+}
+```
+
+다음 설정을 추가로 실행되는 JPQL을 볼 수 있다.
+
+```properties
+spring.jpa.properties.hibernate.use_sql_comments: true
+```
+
+> [!TIP]
+> 같은 테이블을 조인해야 하는 경우가 아니면 기본 인스턴스를 사용하자
 
 ## 검색 조건 쿼리
 

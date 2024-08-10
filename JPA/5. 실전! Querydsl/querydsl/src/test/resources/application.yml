@@ -3,3 +3,7 @@ spring:
     url: jdbc:h2:mem:test
     username: sa
     password:
+
+  jpa:
+    properties:
+      .hibernate.hibernate.use_sql_comments: true
