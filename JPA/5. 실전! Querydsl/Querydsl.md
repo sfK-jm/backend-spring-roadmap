@@ -670,9 +670,139 @@ public void sort() throws Exception {
 }
 ```
 
+- `desc()`, `asc()`: 일반 정렬
+- `nullsLast()`, `nullsFirst()`: null 데이터 순서 부여
+
 ## 페이징
 
+**조회 건수 제한**
+
+```java
+@Test
+public void paging1() throws Exception {
+    List<Member> result = queryFactory
+            .selectFrom(member)
+            .orderBy(member.username.desc())
+            .offset(1) //0부터 시작(zero index)
+            .limit(2) //최대 2건 조회
+            .fetch();
+
+    for (Member m : result) {
+        System.out.println("member = " + m);
+    }
+
+    assertThat(result.size()).isEqualTo(2);
+}
+```
+
+**전체 조회 수가 필요하면?**
+
+```java
+@Test
+public void paging2() throws Exception {
+    QueryResults<Member> queryResults = queryFactory
+            .selectFrom(member)
+            .orderBy(member.username.desc())
+            .offset(1)
+            .limit(2)
+            .fetchResults();
+
+    assertThat(queryResults.getTotal()).isEqualTo(4);
+    assertThat(queryResults.getLimit()).isEqualTo(2);
+    assertThat(queryResults.getOffset()).isEqualTo(1);
+    assertThat(queryResults.getResults().size()).isEqualTo(2);
+}
+```
+
+> [!CAUTION]
+> count 쿼리가 실행되니 성능상 주의!
+
+> [!TIP]
+> 실무에서 페이징 쿼리를 작성할 때, 데이터를 조회하는 쿼리는 여러 테이블을 조인해야 하지만, count 쿼리는 조인이 필요 없는 경우도 있다. 그런데 이렇게 자동화된 count 쿼리는 원본 쿼리와 같이 모두 조인을 해버리기 때문에 성능이 안나올 수 있다. count쿼리에 조인이 필요없는 성능 최적화가 필요하면, count전용 쿼리를 별도로 작성해야 한다.
+
 ## 집합
+
+### 집합 함수
+
+```java
+/**
+ * JPQL
+ * select
+ *      COUNT(m),   //회원수
+ *      SUM(m.age), //나이 합
+ *      AVG(m.age), //평균 나이
+ *      MAX(m.age), //최대 나이
+ *      MIN(m.age)  //최소 나이
+ * from Member m
+ */
+@Test
+public void aggregation() throws Exception {
+    List<Tuple> result = queryFactory
+            .select(member.count(),
+                    member.age.sum(),
+                    member.age.avg(),
+                    member.age.max(),
+                    member.age.min())
+            .from(member)
+            .fetch();
+
+    for (Tuple t : result) {
+        System.out.println("t = " + t);
+    }
+
+    List<Member> members = queryFactory.selectFrom(member).fetch();
+
+    for (Member m : members) {
+        System.out.println("member = " + m);
+    }
+
+    Tuple tuple = result.get(0);
+    assertThat(tuple.get(member.count())).isEqualTo(4);
+    assertThat(tuple.get(member.age.sum())).isEqualTo(100);
+    assertThat(tuple.get(member.age.avg())).isEqualTo(25);
+    assertThat(tuple.get(member.age.max())).isEqualTo(40);
+    assertThat(tuple.get(member.age.min())).isEqualTo(10);
+}
+```
+
+- JPQL이 제공하는 모든 집합 함수를 제공한다.
+- tuple은 프로젝션과 결과반환에서 설명한다.
+
+### GroupBy 사용
+
+```java
+@Test
+public void group() throws Exception {
+    List<Tuple> result = queryFactory
+            .select(team.name, member.age.avg())
+            .from(member)
+            .join(member.team, team)
+            .groupBy(team.name)
+            .fetch();
+
+    for (Tuple t : result) {
+        System.out.println("t = " + t);
+    }
+
+    Tuple teamA = result.get(0);
+    Tuple teamB = result.get(1);
+
+    assertThat(teamA.get(team.name)).isEqualTo("teamA");
+    assertThat(teamA.get(member.age.avg())).isEqualTo(15);
+
+    assertThat(teamB.get(team.name)).isEqualTo("teamB");
+    assertThat(teamB.get(member.age.avg())).isEqualTo(35);
+}
+```
+
+`groupBy`, 그룹화된 결과를 제한하려먼 `having`
+
+**groupBy(), having() 예시**
+
+```java
+    .group(item.price)
+    .having(item.price.gt(1000))
+```
 
 ## 조인 - 기본 조인
 
