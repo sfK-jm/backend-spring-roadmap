@@ -2,6 +2,7 @@ package study.querydsl;
 
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
+import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
@@ -420,5 +421,26 @@ public class QuerydslBasicTest {
 
         assertThat(result).extracting("age")
                 .containsExactly(20, 30, 40);
+    }
+
+    @Test
+    public void 상수() {
+        Tuple result = queryFactory
+                .select(member.username, Expressions.constant("A"))
+                .from(member)
+                .fetchFirst();
+
+        System.out.println("result = " + result);
+    }
+
+    @Test
+    public void 문자_더하기() {
+        String result = queryFactory
+                .select(member.username.concat("_").concat(member.age.stringValue()))
+                .from(member)
+                .where(member.username.eq("member1"))
+                .fetchOne();
+
+        System.out.println("result = " + result);
     }
 }
