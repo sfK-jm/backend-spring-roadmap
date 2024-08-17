@@ -1563,6 +1563,34 @@ long count = queryFactory
 
 ## SQL function 호출
 
+SQL function은 JPA와 같이 Dialect에 등록된 내용만 호출할 수 있다.
+
+member -> M으로 변경하는 replace 함수 사용
+
+```java
+String result = queryFactory
+        .select(Expressions.stringTemplate("function ('replace', {0}, {1}, {2})", 
+                        member.username, "member", "M"))
+        .from(member)
+        .fetchFirst();
+
+        //M1
+```
+
+소문자로 변경해서 비교해라
+
+```java
+.select(member.username)
+.from(member)
+.where(member.username.eq(Expressions.stringTemplate("function('lower', {0})", member.username)))
+```
+
+lower같은 ansi 표준 함수들은 querydsl이 상당부분 내장하고 있다. 따라서 다음과 같이 처리해도 결과는 같드
+
+```java
+.where(member.username.eq(member.username.lower()))
+```
+
 # 실무 활용 - 순수 JPA와 Querydsl
 
 # 실무 활용 - 스프링 데이터 JPA와 Querydsl

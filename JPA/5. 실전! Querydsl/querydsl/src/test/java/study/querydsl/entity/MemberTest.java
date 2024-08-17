@@ -1,5 +1,6 @@
 package study.querydsl.entity;
 
+import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -104,7 +105,7 @@ class MemberTest {
                 .execute();
 
         System.out.println("count = " + count);
-        
+
         em.flush();
         em.clear();
         List<Member> members = queryFactory
@@ -113,6 +114,30 @@ class MemberTest {
 
         for (Member m : members) {
             System.out.println("m = " + m);
+        }
+    }
+
+    @Test
+    public void replace_함수() {
+        String result = queryFactory
+                .select(Expressions.stringTemplate("function ('replace', {0}, {1}, {2})", 
+                        member.username, "member", "M"))
+                .from(member)
+                .fetchFirst();
+
+        System.out.println("result = " + result);
+    }
+
+    @Test
+    public void 소문자만() {
+        List<String> result = queryFactory
+                .select(member.username)
+                .from(member)
+                .where(member.username.eq(Expressions.stringTemplate("function('lower', {0})", member.username)))
+                .fetch();
+
+        for (String s : result) {
+            System.out.println("s = " + s);
         }
     }
 }
