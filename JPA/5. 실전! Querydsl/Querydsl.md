@@ -2018,6 +2018,79 @@ public class MemberController {
 
 # 실무 활용 - 스프링 데이터 JPA와 Querydsl
 
+## 스프링 데이터 JPA 리포지토리로 개발
+
+**스프링 데이터 JPA - MemberRepository 생성**
+
+```java
+package study.querydsl.repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import study.querydsl.entity.Member;
+
+import java.util.List;
+
+public interface MemberRepository extends JpaRepository<Member, Long> {
+
+    List<Member> findByUsername(String username);
+}
+```
+
+**스프링 데이터 JPA 테스트**
+
+```java
+package study.querydsl.repository;
+
+import jakarta.persistence.EntityManager;
+import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
+import study.querydsl.entity.Member;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.*;
+
+@SpringBootTest
+@Transactional
+class MemberRepositoryTest {
+
+    @Autowired
+    EntityManager em;
+
+    @Autowired
+    MemberRepository memberRepository;
+
+    @Test
+    public void basicTest() {
+        Member member = new Member("member1", 10);
+        memberRepository.save(member);
+
+        Member findMember = memberRepository.findById(member.getId()).get();
+        assertThat(findMember).isEqualTo(member);
+
+        List<Member> result1 = memberRepository.findAll();
+        assertThat(result1).containsExactly(member);
+
+        List<Member> result2 = memberRepository.findByUsername("member1");
+        assertThat(result2).containsExactly(member);
+    }
+}
+```
+
+- Querydsl 전용 기능인 회원 search를 작성할 수 없다. -> 사용자 정의 리포지토리 필요
+
+## 사용자 정의 리포지토리
+
+## 스프링 데이터 페이징 활용1 - Querydsl 페이징 연동
+
+## 스프링 데이터 페이징 활용2 - CountQuery 최저고하
+
+## 스프링 데이터 페이징 활용3 - 컨트롤러 개발
+
 # 스프링 데이터 JPA가 제공하는 Querydsl 기능
 
 # 스프링 부트 3.x(2.6 이상), Querydsl 5.0 지원 방법
