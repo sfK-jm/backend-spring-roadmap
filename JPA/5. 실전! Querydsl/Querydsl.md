@@ -2426,12 +2426,420 @@ List<Member> result = query.fetch();
 
 # 스프링 데이터 JPA가 제공하는 Querydsl 기능
 
+여기서 소개하는 기능은 제약이 커서 복잡한 실무 환격에서 사용기에는 많이 부족하다. 그래도 스프링 데이터에서 제공하는 기능이므로 간단히 소개하고, 왜 부족한지 설명하겠다.
+
 ## 인터페이스 지원 - QuerydslPredicateExecutor
+
+**QuerydslPredicateExecutor 인터페이스**
+
+```java
+public interface QuerydslPredicateExecutor<T> {
+    Optional<T> findById(Predicate predicate);
+    Iterable<T> findAll(Predicate predicate);
+    long count(Predicate predicate);
+    boolean exists(Predicate predicate);
+
+    // ...more functionality omitted.
+}
+```
+
+**리포지토리에 적용**
+
+```java
+interface MemberRepository extends JpaRepository<User, Long>, QuerydslPredicateExecutor<User> {
+}
+```
+
+```java
+Iterable result = memberRepository.findAll(
+    member.age.between(10, 40)
+    .and(member.username.eq("member1"))
+);
+```
+
+**한계점**
+
+- 조인X (묵시적 조인은 가능하지만 left join이 불가능하다.)
+- 클라이언트가 Querydsl에 의존해야 한다. 서비스 클래스가 Querydsl이라는 구현 기술에 의존해야 한다.
+- 복잡한 실무환경에서 사용하기에는 한계가 명확하다.
+
+> [!TIP]
+> `QuerydslPredicateExecutor`는 Pageable, Sort를 모두 지원하고 정상 동작한다.
 
 ## Querydsl Web 지원
 
+**한계점**
+
+- 단순한 조건만 가능
+- 조건을 커스텀하는 기능이 복잡하고 명시적이지 않음
+- 컨트롤러가 Querydsl에 의존
+- 복잡한 실무환경에서 사용하기에는 한계가 명확
+
 ## 리포지토리 지원 - QuerydslRepositorySupport
+
+QuerydslRepositorySupport
+
+**장점**
+
+- `getQuerydsl().applyPagination()` 스프링 데이터가 제공하는 페이징을 Querydsl로 편리하게 변환가능(단! Sort는 오류발생)
+- `from()`으로 시작 가능(최근에는 QueryFactory를 사용해서 `select()`로 시작하는 것이 더 명시적)
+- EntityManager 제공
+
+**한계**
+
+- Querydsl 3.x버전을 대상으로 만듬
+- Querydsl 4.x에 나온 JPAQueryFactory로 시작할 수 없음
+  - select로 시작할 수 없음(from으로 시작해야함)
+- `QueryFactory`를 제공하지 않음
+- 스프링 데이터 Sort 기능이 정상 동작하지 않음
 
 ## Querydsl 지원 클래스 직접 만들기
 
+스프링 데이터가 제공하는 `QuerydslRepositorySupport`가 지닌 한계를 극복하기 위해 직접 Querydsl 지원 클래스를 만들어보자
+
+**장점**
+
+- 스프링 데이터가 제공하는 페이징을 편리하게 변환
+- 페이징과 카운트 쿼리 분리 가능
+- 스프링 데이터 Sort 지원
+- `select()`, `selectFrom()`으로 시작 가능
+- `EntityManager`, `QueryFactory`제공
+
+**Querydsl4RepositorySupport**
+
+```java
+package study.querydsl.repository.support;
+
+import com.querydsl.core.types.EntityPath;
+import com.querydsl.core.types.Expression;
+import com.querydsl.core.types.dsl.PathBuilder;
+import com.querydsl.jpa.impl.JPAQuery;
+import com.querydsl.jpa.impl.JPAQueryFactory;
+import jakarta.annotation.PostConstruct;
+import jakarta.persistence.EntityManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.support.JpaEntityInformation;
+import org.springframework.data.jpa.repository.support.JpaEntityInformationSupport;
+import org.springframework.data.jpa.repository.support.Querydsl;
+import org.springframework.data.querydsl.SimpleEntityPathResolver;
+import org.springframework.data.support.PageableExecutionUtils;
+import org.springframework.stereotype.Repository;
+import org.springframework.util.Assert;
+
+import java.util.List;
+import java.util.function.Function;
+
+/**
+ * Querydsl 4.x 버전에 맞춘 Querydsl 지원 라이브러리
+ */
+@Repository
+public abstract class Querydsl4RepositorySupport {
+
+    private final Class domainClass;
+    private Querydsl querydsl;
+    private EntityManager entityManager;
+    private JPAQueryFactory queryFactory;
+    public Querydsl4RepositorySupport(Class<?> domainClass) {
+        Assert.notNull(domainClass, "Domain class must not be null!");
+        this.domainClass = domainClass;
+    }
+
+    @Autowired
+    public void setEntityManager(EntityManager entityManager) {
+        Assert.notNull(entityManager, "EntityManager must not be null!");
+        JpaEntityInformation entityInformation =
+                JpaEntityInformationSupport.getEntityInformation(domainClass, entityManager);
+        SimpleEntityPathResolver resolver = SimpleEntityPathResolver.INSTANCE;
+        EntityPath path = resolver.createPath(entityInformation.getJavaType());
+        this.entityManager = entityManager;
+        this.querydsl = new Querydsl(entityManager, new
+                PathBuilder<>(path.getType(), path.getMetadata()));
+        this.queryFactory = new JPAQueryFactory(entityManager);
+    }
+
+    @PostConstruct
+    public void validate() {
+        Assert.notNull(entityManager, "EntityManager must not be null!");
+        Assert.notNull(querydsl, "Querydsl must not be null!");
+        Assert.notNull(queryFactory, "QueryFactory must not be null!");
+    }
+    protected JPAQueryFactory getQueryFactory() {
+        return queryFactory;
+    }
+    protected Querydsl getQuerydsl() {
+        return querydsl;
+    }
+    protected EntityManager getEntityManager() {
+        return entityManager;
+    }
+    protected <T> JPAQuery<T> select(Expression<T> expr) {
+        return getQueryFactory().select(expr);
+    }
+    protected <T> JPAQuery<T> selectFrom(EntityPath<T> from) {
+        return getQueryFactory().selectFrom(from);
+    }
+
+    protected <T> Page<T> applyPagination(Pageable pageable,
+                                          Function<JPAQueryFactory, JPAQuery> contentQuery) {
+        JPAQuery jpaQuery = contentQuery.apply(getQueryFactory());
+        List<T> content = getQuerydsl().applyPagination(pageable,
+                jpaQuery).fetch();
+        return PageableExecutionUtils.getPage(content, pageable,
+                jpaQuery::fetchCount);
+    }
+
+    protected <T> Page<T> applyPagination(Pageable pageable,
+                                          Function<JPAQueryFactory, JPAQuery> contentQuery, Function<JPAQueryFactory,
+            JPAQuery> countQuery) {
+        JPAQuery jpaContentQuery = contentQuery.apply(getQueryFactory());
+        List<T> content = getQuerydsl().applyPagination(pageable, jpaContentQuery).fetch();
+
+        JPAQuery countResult = countQuery.apply(getQueryFactory());
+        return PageableExecutionUtils.getPage(content, pageable,
+                countResult::fetchCount);
+    }
+}
+```
+
+**Querydsl4RepositorySupport 사용 코드**
+
+```java
+package study.querydsl.repository;
+
+import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.jpa.impl.JPAQuery;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.support.PageableExecutionUtils;
+import org.springframework.stereotype.Repository;
+import study.querydsl.dto.MemberSearchCondition;
+import study.querydsl.entity.Member;
+import study.querydsl.repository.support.Querydsl4RepositorySupport;
+
+import java.util.List;
+
+import static org.springframework.util.StringUtils.isEmpty;
+import static study.querydsl.entity.QMember.member;
+import static study.querydsl.entity.QTeam.team;
+
+@Repository
+public class MemberTestRepository extends Querydsl4RepositorySupport {
+
+    public MemberTestRepository() {
+        super(Member.class);
+    }
+
+    public List<Member> basicSelect() {
+        return select(member)
+                .from(member)
+                .fetch();
+    }
+
+    public List<Member> basicSelectFrom() {
+        return selectFrom(member)
+                .fetch();
+    }
+    public Page<Member> searchPageByApplyPage(MemberSearchCondition condition, Pageable pageable) {
+        JPAQuery<Member> query = selectFrom(member)
+                .leftJoin(member.team, team)
+                .where(usernameEq(condition.getUsername()),
+                        teamNameEq(condition.getTeamName()),
+                        ageGoe(condition.getAgeGoe()),
+                        ageLoe(condition.getAgeLoe()));
+        List<Member> content = getQuerydsl().applyPagination(pageable, query)
+                .fetch();
+        return PageableExecutionUtils.getPage(content, pageable,
+                query::fetchCount);
+    }
+
+    public Page<Member> applyPagination(MemberSearchCondition condition,
+                                        Pageable pageable) {
+        return applyPagination(pageable, contentQuery -> contentQuery
+                .selectFrom(member)
+                .leftJoin(member.team, team)
+                .where(usernameEq(condition.getUsername()),
+                        teamNameEq(condition.getTeamName()),
+                        ageGoe(condition.getAgeGoe()),
+                        ageLoe(condition.getAgeLoe())));
+    }
+
+    public Page<Member> applyPagination2(MemberSearchCondition condition,
+                                         Pageable pageable) {
+        return applyPagination(pageable, contentQuery -> contentQuery
+                        .selectFrom(member)
+                        .leftJoin(member.team, team)
+                        .where(usernameEq(condition.getUsername()),
+                                teamNameEq(condition.getTeamName()),
+                                ageGoe(condition.getAgeGoe()),
+                                ageLoe(condition.getAgeLoe())),
+                countQuery -> countQuery
+                        .selectFrom(member)
+                        .leftJoin(member.team, team)
+                        .where(usernameEq(condition.getUsername()),
+                                teamNameEq(condition.getTeamName()),
+                                ageGoe(condition.getAgeGoe()),
+                                ageLoe(condition.getAgeLoe()))
+        );
+    }
+
+    private BooleanExpression usernameEq(String username) {
+        return isEmpty(username) ? null : member.username.eq(username);
+    }
+    private BooleanExpression teamNameEq(String teamName) {
+        return isEmpty(teamName) ? null : team.name.eq(teamName);
+    }
+    private BooleanExpression ageGoe(Integer ageGoe) {
+        return ageGoe == null ? null : member.age.goe(ageGoe);
+    }
+    private BooleanExpression ageLoe(Integer ageLoe) {
+        return ageLoe == null ? null : member.age.loe(ageLoe);
+    }
+}
+```
+
 # 스프링 부트 3.x(2.6 이상), Querydsl 5.0 지원 방법
+
+최신 스프링 부트 3.x(2.6부터)는 Querydsl 5.0을 지원한다
+
+스프링 부트 3.x(2.6이상) 사용시 다음과 같은 부분을 확인해야 한다.
+
+1. `build.gradle` 설정 변경
+2. `PageableExecutionUtils` Deprecated 패키지 변경
+3. Querydsl `fetchResults()`, `fetchCount()` Deprecated
+
+## build.gradle 설정 방법
+
+```gradle
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.2.0'
+	id 'io.spring.dependency-management' version '1.1.4'
+}
+
+
+group = 'study'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	sourceCompatibility = '17'
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+
+repositories {
+	mavenCentral()
+}
+
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'com.github.gavlyukovskiy:p6spy-spring-boot-starter:1.9.0'
+	compileOnly 'org.projectlombok:lombok'
+	runtimeOnly 'com.h2database:h2'
+	annotationProcessor 'org.projectlombok:lombok'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+
+	//test 롬복 사용
+	testCompileOnly 'org.projectlombok:lombok'
+	testAnnotationProcessor 'org.projectlombok:lombok'
+
+	//Querydsl 추가
+	implementation 'com.querydsl:querydsl-jpa:5.0.0:jakarta'
+	annotationProcessor "com.querydsl:querydsl-apt:${dependencyManagement.importedProperties['querydsl.version']}:jakarta"
+	annotationProcessor "jakarta.annotation:jakarta.annotation-api"
+	annotationProcessor "jakarta.persistence:jakarta.persistence-api"
+}
+
+clean {
+	delete file('src/main/generated')
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+```
+
+## PageableExecutionUtils Deprecated(향후 미지원) 패키지 변경
+
+**PageableExecutionUtils클래스 사용 패키지 변경**
+
+기능이 Deprecated된 것은 아니고, 사용패키 위치가 변경되었습니다. 기존 위치를 신규 위치로 변경해주시면 문제 없이 사용할 수 있습니다.
+
+- 기존: `org.springframework.data.repository.support.PageableExecutionUtils`
+- 신규: `org.springframework.data.support.PageableExecutionUtils`
+
+
+## Querydsl fetchResults(), fetchCount() Deprecated(향후 미지월)
+
+Querydsl의 `fetchCount()`, `fetchResult()`는 개발자가 작성한 select쿼리를 기반으로 count용 쿼리를 내부에서 만들어서 실행합니다.<br>그런데 이 기능은 select구문을 단순히 count처리하는 용도로 바꾸는 정도입니다. 따라서 단순한 쿼리에서는 잘 동작하지만, 복잡한 쿼리에서는 제대로 동작하지 않습니다.<br> Querydsl은 향후 `fetchCount()`, `fetchResult()`를 지원하지 않기록 결정했습니다.<br>참고로 Querydsl의 변화가 빠르지는 않기 때문에 당장 해당 기능을 제거하지는 않을 것입니다.
+
+따라서 count쿼리가 필요하면 다음과 같이 별도록 작성해야 합니다.
+
+**count 쿼리는 예제**
+
+```java
+@Test
+public void count() {
+    Long totalCount = queryFactory
+            //.select(Wildcard.count) //select count(*)
+            .select(member.count()) //select count(member.id)
+            .from(member)
+            .fetchOne();
+
+    System.out.println("totalCount = " + totalCount);
+}
+```
+
+- `count(*)`을 사용하고 싶으면 예제의 주석처럼 `WildCard.count`를 사용하면 됩니다.
+- `member.count()`를 사용하면 `count(member.id)`로 처리됩니다.
+- 응답 결과는 숫자 하나이므로 `fetchOne()`을 사용합니다.
+
+`MemberRepositoryImpl.searchPageComplex()`예제에서 보여드린 것 처럼 select 쿼리와는 별도로 count 쿼리를 작성하고 `fetch()`를 사용해야 합니다. 다음은 최신 버전에 맞추어 수정된 예제 입니다.
+
+**수정된 searchPageComplex 예제**
+
+```java
+import org.springframework.data.support.PageableExecutionUtils; //패키지 변경
+
+public Page<MemberTeamDto> searchPageComplex(MemberSearchCondition condition, Pageable pageable) {
+
+    List<MemberTeamDto> content = queryFactory
+            .select(new QMemberTeamDto(
+                    member.id,
+                    member.username,
+                    member.age,
+                    team.id,
+                    team.name))
+            .from(member)
+            .leftJoin(member.team, team)
+            .where(usernameEq(condition.getUsername()),
+                    teamNameEq(condition.getTeamName()),
+                    ageGoe(condition.getAgeGoe()),
+                    ageLoe(condition.getAgeLoe()))
+            .offset(pageable.getOffset())
+            .limit(pageable.getPageSize())
+            .fetch();
+
+    JPAQuery<Long> countQuery = queryFactory
+            .select(member.count())
+            .from(member)
+            .leftJoin(member.team, team)
+            .where(
+                    usernameEq(condition.getUsername()),
+                    teamNameEq(condition.getTeamName()),
+                    ageGoe(condition.getAgeGoe()),
+                    ageLoe(condition.getAgeLoe())
+            );
+
+    return PageableExecutionUtils.getPage(content, pageable, countQuery::fetchOne);
+}
+```
