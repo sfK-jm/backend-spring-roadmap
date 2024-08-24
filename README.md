@@ -29,6 +29,9 @@
 - [소스코드 5 (exception)](./spring/[스프링학습3]스프링MVC-2편/소스코드%20모음/exception/)
 - [소스코드 6 (typeconverter)](./spring/[스프링학습3]스프링MVC-2편/소스코드%20모음/typeconverter/) 
 
+## 스프링 핵심 원리 - 고급편
+
+[설명](./spring/[스프링학습4]스프링핵심원리-고급편/스프링핵심원리-고급편.md)
 
 # DB
 
