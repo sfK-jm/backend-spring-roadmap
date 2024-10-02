@@ -6,9 +6,9 @@
 
 ## 스프링 MVC - 1편
 
-[소스코드 1 (servlet)](./spring/[스프링학습2]스프링MVC-1편/소스코드%20모음/servlet/)
-[소스코드 2 (spring mvc)](./spring/[스프링학습2]스프링MVC-1편/소스코드%20모음/springmvc/)
-[소스코드 3 (item-service)](./spring/[스프링학습2]스프링MVC-1편/소스코드%20모음/item-service/)
+[소스코드 1](./spring/[스프링학습2]스프링MVC-1편/소스코드%20모음/servlet/)
+[소스코드 2](./spring/[스프링학습2]스프링MVC-1편/소스코드%20모음/springmvc/)
+[소스코드 3](./spring/[스프링학습2]스프링MVC-1편/소스코드%20모음/item-service/)
 
 ## 스프링 MVC - 2편
 
@@ -16,8 +16,8 @@
 [소스코드 2](./spring/[스프링학습3]스프링MVC-2편/소스코드%20모음/form/)
 [소스코드 3](./spring/[스프링학습3]스프링MVC-2편/소스코드%20모음/message/)
 [소스코드 4](./spring/[스프링학습3]스프링MVC-2편/소스코드%20모음/validation/)
-[소스코드 5 (exception)](./spring/[스프링학습3]스프링MVC-2편/소스코드%20모음/exception/)
-[소스코드 6 (typeconverter)](./spring/[스프링학습3]스프링MVC-2편/소스코드%20모음/typeconverter/) 
+[소스코드 5](./spring/[스프링학습3]스프링MVC-2편/소스코드%20모음/exception/)
+[소스코드 6](./spring/[스프링학습3]스프링MVC-2편/소스코드%20모음/typeconverter/) 
 
 ## 스프링 DB 1편
 
