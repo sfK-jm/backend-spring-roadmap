@@ -1,0 +1,39 @@
+10-Oct-2024 10:42:43.681 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Server version name:   Apache Tomcat/10.1.30
+10-Oct-2024 10:42:43.683 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Server built:          Sep 13 2024 20:26:16 UTC
+10-Oct-2024 10:42:43.683 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Server version number: 10.1.30.0
+10-Oct-2024 10:42:43.683 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log OS Name:               Mac OS X
+10-Oct-2024 10:42:43.683 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log OS Version:            15.0
+10-Oct-2024 10:42:43.683 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Architecture:          aarch64
+10-Oct-2024 10:42:43.683 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Java Home:             /Library/Java/JavaVirtualMachines/jdk-23.jdk/Contents/Home
+10-Oct-2024 10:42:43.683 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log JVM Version:           23+37-2369
+10-Oct-2024 10:42:43.683 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log JVM Vendor:            Oracle Corporation
+10-Oct-2024 10:42:43.683 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log CATALINA_BASE:         /Users/sungjunmo/Documents/backend-spring-roadmap/spring/[스프링학습5]스프링_부트-핵심_원리와_활용/tool/apache-tomcat-10.1.30
+10-Oct-2024 10:42:43.683 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log CATALINA_HOME:         /Users/sungjunmo/Documents/backend-spring-roadmap/spring/[스프링학습5]스프링_부트-핵심_원리와_활용/tool/apache-tomcat-10.1.30
+10-Oct-2024 10:42:43.688 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: -Djava.util.logging.config.file=/Users/sungjunmo/Documents/backend-spring-roadmap/spring/[스프링학습5]스프링_부트-핵심_원리와_활용/tool/apache-tomcat-10.1.30/conf/logging.properties
+10-Oct-2024 10:42:43.688 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: -Djava.util.logging.manager=org.apache.juli.ClassLoaderLogManager
+10-Oct-2024 10:42:43.688 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: -Djdk.tls.ephemeralDHKeySize=2048
+10-Oct-2024 10:42:43.688 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: -Djava.protocol.handler.pkgs=org.apache.catalina.webresources
+10-Oct-2024 10:42:43.688 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: -Dorg.apache.catalina.security.SecurityListener.UMASK=0027
+10-Oct-2024 10:42:43.688 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: --add-opens=java.base/java.lang=ALL-UNNAMED
+10-Oct-2024 10:42:43.688 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: --add-opens=java.base/java.io=ALL-UNNAMED
+10-Oct-2024 10:42:43.688 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: --add-opens=java.base/java.util=ALL-UNNAMED
+10-Oct-2024 10:42:43.688 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: --add-opens=java.base/java.util.concurrent=ALL-UNNAMED
+10-Oct-2024 10:42:43.689 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: --add-opens=java.rmi/sun.rmi.transport=ALL-UNNAMED
+10-Oct-2024 10:42:43.689 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: -Dcatalina.base=/Users/sungjunmo/Documents/backend-spring-roadmap/spring/[스프링학습5]스프링_부트-핵심_원리와_활용/tool/apache-tomcat-10.1.30
+10-Oct-2024 10:42:43.689 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: -Dcatalina.home=/Users/sungjunmo/Documents/backend-spring-roadmap/spring/[스프링학습5]스프링_부트-핵심_원리와_활용/tool/apache-tomcat-10.1.30
+10-Oct-2024 10:42:43.689 INFO [main] org.apache.catalina.startup.VersionLoggerListener.log Command line argument: -Djava.io.tmpdir=/Users/sungjunmo/Documents/backend-spring-roadmap/spring/[스프링학습5]스프링_부트-핵심_원리와_활용/tool/apache-tomcat-10.1.30/temp
+10-Oct-2024 10:42:43.695 INFO [main] org.apache.catalina.core.AprLifecycleListener.lifecycleEvent The Apache Tomcat Native library which allows using OpenSSL was not found on the java.library.path: [/Users/sungjunmo/Library/Java/Extensions:/Library/Java/Extensions:/Network/Library/Java/Extensions:/System/Library/Java/Extensions:/usr/lib/java:.]
+10-Oct-2024 10:42:43.848 INFO [main] org.apache.coyote.AbstractProtocol.init Initializing ProtocolHandler ["http-nio-8080"]
+10-Oct-2024 10:42:43.863 INFO [main] org.apache.catalina.startup.Catalina.load Server initialization in [285] milliseconds
+10-Oct-2024 10:42:43.882 INFO [main] org.apache.catalina.core.StandardService.startInternal Starting service [Catalina]
+10-Oct-2024 10:42:43.882 INFO [main] org.apache.catalina.core.StandardEngine.startInternal Starting Servlet engine: [Apache Tomcat/10.1.30]
+10-Oct-2024 10:42:43.890 INFO [main] org.apache.catalina.startup.HostConfig.deployWAR Deploying web application archive [/Users/sungjunmo/Documents/backend-spring-roadmap/spring/[스프링학습5]스프링_부트-핵심_원리와_활용/tool/apache-tomcat-10.1.30/webapps/ROOT.war]
+10-Oct-2024 10:42:44.040 INFO [main] org.apache.jasper.servlet.TldScanner.scanJars At least one JAR was scanned for TLDs yet contained no TLDs. Enable debug logging for this logger for a complete list of JARs that were scanned but no TLDs were found in them. Skipping unneeded JARs during scanning can improve startup time and JSP compilation time.
+10-Oct-2024 10:42:44.056 INFO [main] org.apache.catalina.startup.HostConfig.deployWAR Deployment of web application archive [/Users/sungjunmo/Documents/backend-spring-roadmap/spring/[스프링학습5]스프링_부트-핵심_원리와_활용/tool/apache-tomcat-10.1.30/webapps/ROOT.war] has finished in [166] ms
+10-Oct-2024 10:42:44.058 INFO [main] org.apache.coyote.AbstractProtocol.start Starting ProtocolHandler ["http-nio-8080"]
+10-Oct-2024 10:42:44.063 INFO [main] org.apache.catalina.startup.Catalina.start Server startup in [198] milliseconds
+10-Oct-2024 10:51:53.866 INFO [main] org.apache.catalina.core.StandardServer.await A valid shutdown command was received via the shutdown port. Stopping the Server instance.
+10-Oct-2024 10:51:53.867 INFO [main] org.apache.coyote.AbstractProtocol.pause Pausing ProtocolHandler ["http-nio-8080"]
+10-Oct-2024 10:51:53.870 INFO [main] org.apache.catalina.core.StandardService.stopInternal Stopping service [Catalina]
+10-Oct-2024 10:51:53.880 INFO [main] org.apache.coyote.AbstractProtocol.stop Stopping ProtocolHandler ["http-nio-8080"]
+10-Oct-2024 10:51:53.882 INFO [main] org.apache.coyote.AbstractProtocol.destroy Destroying ProtocolHandler ["http-nio-8080"]
